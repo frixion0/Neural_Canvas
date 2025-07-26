@@ -466,7 +466,7 @@ elements.buildWebsiteButton.addEventListener('click', async () => {
         const systemPrompt = `You are an expert web developer. Create a complete, self-contained HTML website based on the user's request. The response should be ONLY the HTML code, with no explanations or markdown. Include CSS in <style> tags and JavaScript in <script> tags. Make it modern, responsive, and visually appealing. Style: ${elements.builderStyle.value}. Language: ${elements.builderLanguage.value}.`;
         
         const response = await builderClient.chat.completions.create({
-            model: "provider-3/deepseek-v3",
+            model: "provider-6/gpt-4.1-mini",
             messages: [
                 {"role": "system", "content": systemPrompt},
                 {"role": "user", "content": `create a ${prompt} only code in html only`}

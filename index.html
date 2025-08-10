@@ -1,0 +1,266 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Canvas - AI Generators</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* Quick mobile fixes */
+        @media (max-width: 768px) {
+            .main-title { font-size: 2.5rem; }
+            .tab-buttons { 
+                flex-direction: column; 
+                gap: 10px;
+            }
+            .tab-btn {
+                width: 100%;
+                padding: 15px;
+                font-size: 1rem;
+            }
+            .tab-content-container {
+                padding: 20px 10px;
+            }
+            .container { padding: 20px 10px; }
+            .upload-zone { padding: 30px 15px; }
+            .preview-wrapper {
+                height: 400px;
+            }
+            .chat-container { height: 400px; }
+        }
+        @media (max-width: 480px) {
+            .main-title { font-size: 2rem; }
+            .section-header h2 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-animation">
+        <div class="glow-sphere sphere-1"></div>
+        <div class="glow-sphere sphere-2"></div>
+        <div class="glow-sphere sphere-3"></div>
+        <div class="grid-overlay"></div>
+    </div>
+    
+    <div class="container">
+        <div class="header-glow"></div>
+        
+        <h1 class="main-title">
+            <span class="title-glow">Neural</span>
+            <span class="title-accent">Canvas</span>
+        </h1>
+        <p class="subtitle">AI-Powered Creative Suite</p>
+        
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button id="imageGeneratorTabButton" class="tab-btn active">
+                    <span class="tab-icon">✨</span>
+                    <span class="tab-text">Image Generator</span>
+                    <div class="tab-glow"></div>
+                </button>
+                <button id="builderTabButton" class="tab-btn">
+                    <span class="tab-icon">🔧</span>
+                    <span class="tab-text">Website Builder</span>
+                    <div class="tab-glow"></div>
+                </button>
+                <button id="botTabButton" class="tab-btn">
+                    <span class="tab-icon">🤖</span>
+                    <span class="tab-text">AI Chatbot</span>
+                    <div class="tab-glow"></div>
+                </button>
+            </div>
+
+            <div class="tab-content-container">
+                <div id="imageGeneratorSection" class="tab-content active">
+                    <div class="section-header">
+                        <h2>AI Image Generator</h2>
+                        <p>Create stunning visuals from text descriptions with state-of-the-art AI</p>
+                    </div>
+                    <div id="imageGeneratorStatus" class="generator-status-message" style="display: none;"></div>
+                    
+                    <div class="prompt-container">
+                        <textarea id="imageGeneratorPromptInput" placeholder="Describe your vision... (e.g., 'A neon-lit cyberpunk cityscape with flying vehicles')"></textarea>
+                        
+                        <div class="advanced-options">
+                            <div class="option-group">
+                                <label>Size</label>
+                                <select id="imageSize" class="neon-select">
+                                    <option value="1024x1024">Square (1024×1024)</option>
+                                    <option value="1024x1792">Portrait (1024×1792)</option>
+                                    <option value="1792x1024">Landscape (1792×1024)</option>
+                                </select>
+                            </div>
+                            <div class="option-group">
+                                <label>Model/Style</label>
+                                <div id="imageModelOrStyle" class="model-selection-grid">
+                                    <button class="model-option-btn active" data-value="photorealistic">Photorealistic (Flux)</button>
+                                    <button class="model-option-btn" data-value="anime">Anime (Flux)</button>
+                                    <button class="model-option-btn" data-value="digital-art">Digital Art (Flux)</button>
+                                    <button class="model-option-btn" data-value="cinematic">Cinematic (Flux)</button>
+                                    <button class="model-option-btn" data-value="uncen">Uncensored (via Proxy)</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button id="enhanceImagePrompt" class="action-btn" style="background: linear-gradient(135deg, #8b00ff, #ff00ff); flex: 1;">
+                                ✨ Enhance Prompt
+                            </button>
+                            <button id="clearImagePromptBtn" class="clear-btn">Clear</button>
+                            <button id="generateImageButton" class="action-btn" style="flex: 1;">
+                                <span class="btn-text">Generate Image</span>
+                                <span class="btn-loader"></span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="result-container" id="generatedImageContainer" style="display:none;">
+                        <h3>Generated Masterpiece</h3>
+                        <img id="generatedImage" alt="Generated">
+                        <div class="action-buttons">
+                            <button class="download-btn" id="generatedImageDownloadButton">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M12 15V3" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="builderSection" class="tab-content">
+                    <div class="section-header">
+                        <h2>AI Website Builder</h2>
+                        <p>Build complete websites instantly with AI-powered code generation</p>
+                    </div>
+                    <div id="builderStatus" class="generator-status-message" style="display: none;"></div>
+                    
+                    <div class="prompt-container">
+                        <textarea id="builderPromptInput" placeholder="Describe your website... (e.g., 'create a landing page for a tech startup with dark theme')"></textarea>
+                        
+                        <div class="advanced-options">
+                            <div class="option-group">
+                                <label>Language</label>
+                                <select id="builderLanguage" class="neon-select">
+                                    <option value="html">HTML/CSS/JS</option>
+                                    <option value="react">React</option>
+                                </select>
+                            </div>
+                            <div class="option-group">
+                                <label>Style</label>
+                                <select id="builderStyle" class="neon-select">
+                                    <option value="modern">Modern</option>
+                                    <option value="minimal">Minimal</option>
+                                    <option value="cyberpunk">Cyberpunk</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button id="enhanceBuilderPrompt" class="action-btn" style="background: linear-gradient(135deg, #8b00ff, #ff00ff); flex: 1;">
+                                ✨ Enhance Prompt
+                            </button>
+                            <button id="clearBuilderPromptBtn" class="clear-btn">Clear</button>
+                            <button id="buildWebsiteButton" class="action-btn" style="flex: 1;">
+                                <span class="btn-text">Build Website</span>
+                                <span class="btn-loader"></span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="result-container" id="websitePreviewContainer" style="display:none;">
+                        <h3>AI Generated Website</h3>
+                        <div class="preview-controls">
+                            <button id="previewDesktop" class="preview-btn active">Desktop</button>
+                            <button id="previewMobile" class="preview-btn">Mobile</button>
+                            <button id="previewTablet" class="preview-btn">Tablet</button>
+                        </div>
+                        <div class="preview-wrapper">
+                            <iframe id="websitePreview" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+                        </div>
+                        <div class="action-buttons">
+                            <button class="download-btn" id="downloadCodeButton">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M12 15V3" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                                Download Code
+                            </button>
+                            <button class="edit-generated-btn" id="editCodeButton">
+                                Edit Code
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="botSection" class="tab-content">
+                    <div class="section-header">
+                        <h2>AI Chatbot</h2>
+                        <p>Chat with our intelligent AI assistant powered by advanced language models</p>
+                    </div>
+                    <div id="botStatus" class="generator-status-message" style="display: none;"></div>
+                    
+                    <div class="chat-container">
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="message bot-message">
+                                <div class="message-content">
+                                    <div class="message-avatar">🤖</div>
+                                    <div class="message-text">Hello! I'm your AI assistant. How can I help you today?</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-input-container">
+                            <div class="chat-image-preview-wrapper" id="chatImagePreviewContainer" style="display:none;">
+                                <img id="chatImagePreview" alt="Selected Image">
+                                <button class="remove-chat-image-btn" id="removeChatImageBtn">×</button>
+                            </div>
+                            <label for="chatImageUpload" class="chat-upload-btn">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 5v14M5 12h14" />
+                                </svg>
+                            </label>
+                            <input type="file" id="chatImageUpload" accept="image/*" hidden>
+                            <textarea 
+                                id="botInput" 
+                                class="chat-input" 
+                                placeholder="Ask me anything..."
+                                rows="1"
+                            ></textarea>
+                            <button id="sendBotButton" class="action-btn chat-send-btn">
+                                <span class="btn-text">Send</span>
+                                <span class="btn-loader"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading-overlay" style="display:none;">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <p class="loading-text">Processing with AI...</p>
+                <div class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="errorMessage" class="error-notification" style="display:none;">
+            <div class="error-content">
+                <span class="error-icon">⚠️</span>
+                <span class="error-text"></span>
+                <button onclick="this.parentElement.parentElement.style.display='none'">×</button>
+            </div>
+        </div>
+        
+        <div id="globalAppStatus" class="generator-status-message" style="display: none;"></div>
+    </div>
+    
+    <script type="module" src="script.js"></script>
+</body>
+</html>

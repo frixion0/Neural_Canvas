@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "openai": "https://cdn.skypack.dev/openai@4.47.1"
+  }
+}
+

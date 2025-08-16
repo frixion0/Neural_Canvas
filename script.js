@@ -11,28 +11,28 @@ let currentWebsitePrompt = ''; // Store the original prompt for context or futur
 
 // OpenAI clients
 const imageGenerateClient = new OpenAI({
-    apiKey: 'ddc-a4f-25c62da6794b4fdf9720708012108518',
+    apiKey: api ,
     baseURL: "https://api.a4f.co/v1",
     dangerouslyAllowBrowser: true,
 });
 
 // Add missing builderClient
 const builderClient = new OpenAI({
-    apiKey: 'ddc-a4f-25c62da6794b4fdf9720708012108518',
+    apiKey: api ,
     baseURL: "https://api.a4f.co/v1",
     dangerouslyAllowBrowser: true,
 });
 
 // Add new client for bot
 const botClient = new OpenAI({
-    apiKey: 'ddc-a4f-25c62da6794b4fdf9720708012108518',
+    apiKey: api ,
     baseURL: "https://api.a4f.co/v1",
     dangerouslyAllowBrowser: true,
 });
 
 // Add new client for prompt enhancer
 const promptEnhancerClient = new OpenAI({
-    apiKey: 'ddc-a4f-25c62da6794b4fdf9720708012108518',
+    apiKey: api ,
     baseURL: "https://api.a4f.co/v1",
     dangerouslyAllowBrowser: true,
 });

@@ -9,12 +9,17 @@ let currentSelectedImageModel = 'img3';
 let currentWebsiteCode = '';
 let currentWebsitePrompt = '';
 
+// ... (rest of your code)
+
 const clients = {
-    image: new OpenAI({ apiKey: 'ddc-a4f-25c62da6794b4fdf9720708012108518', baseURL: "https://api.a4f.co/v1", dangerouslyAllowBrowser: true }),
-    builder: new OpenAI({ apiKey: 'ddc-a4f-25c62da6794b4fdf9720708012108518', baseURL: "https://api.a4f.co/v1", dangerouslyAllowBrowser: true }),
-    bot: new OpenAI({ apiKey: 'ddc-a4f-25c62da6794b4fdf9720708012108518', baseURL: "https://api.a4f.co/v1", dangerouslyAllowBrowser: true }),
-    enhancer: new OpenAI({ apiKey: 'ddc-a4f-25c62da6794b4fdf9720708012108518', baseURL: "https://api.a4f.co/v1", dangerouslyAllowBrowser: true }),
+    image: new OpenAI({ apiKey: process.env.api, baseURL: "https://api.a4f.co/v1", dangerouslyAllowBrowser: true }),
+    builder: new OpenAI({ apiKey: process.env.api, baseURL: "https://api.a4f.co/v1", dangerouslyAllowBrowser: true }),
+    bot: new OpenAI({ apiKey: process.env.api, baseURL: "https://api.a4f.co/v1", dangerouslyAllowBrowser: true }),
+    enhancer: new OpenAI({ apiKey: process.env.api, baseURL: "https://api.a4f.co/v1", dangerouslyAllowBrowser: true }),
 };
+
+// ... (rest of your code)
+
 
 // --- LOCAL STORAGE & HISTORY UTILITIES ---
 const MAX_HISTORY_ITEMS = 12; // Store up to 12 recent items

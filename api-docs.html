@@ -4,15 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Developer API Documentation | Neural Canvas</title>
-    <meta name="description" content="Integrate Neural Canvas AI into your apps with our developer API. Access models for image generation and image editing. Get started with examples.">
-    <link rel="canonical" href="https://neuralcanvas.example.com/api-docs.html" />
+    <meta name="description" content="Integrate Neural Canvas AI into your apps with our developer API. Access powerful AI models for image generation and image editing with easy-to-use endpoints.">
+    <meta name="keywords" content="AI API, Developer API, Image Generation API, Neural Canvas, AI Integration, Image Editing API">
+    <link rel="canonical" href="https://neural-canvas-seven.vercel.app/api-docs.html" />
     <!-- Open Graph / Facebook -->
     <meta property="og:site_name" content="Neural Canvas">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Developer API Documentation | Neural Canvas">
     <meta property="og:description" content="Integrate Neural Canvas AI into your apps with our developer API. Access models for image generation and image editing. Get started with examples.">
-    <meta property="og:url" content="https://neuralcanvas.example.com/api-docs.html">
-    <meta property="og:image" content="https://neuralcanvas.example.com/social-share-image.png">
+    <meta property="og:url" content="https://neural-canvas-seven.vercel.app/api-docs.html">
+    <meta property="og:image" content="https://neural-canvas-seven.vercel.app/social-share-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <!-- Twitter -->
@@ -21,7 +22,7 @@
     <meta name="twitter:creator" content="@NeuralCanvasAI">
     <meta name="twitter:title" content="Developer API Documentation | Neural Canvas">
     <meta name="twitter:description" content="Integrate Neural Canvas AI into your apps with our developer API. Access models for image generation and image editing. Get started with examples.">
-    <meta name="twitter:image" content="https://neuralcanvas.example.com/social-share-image.png">
+    <meta name="twitter:image" content="https://neural-canvas-seven.vercel.app/social-share-image.png">
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,7 +33,7 @@
       "@type": "TechArticle",
       "headline": "Neural Canvas Developer API Documentation",
       "description": "Technical documentation and code examples for integrating the Neural Canvas AI API for image generation and image editing into your applications.",
-      "url": "https://neuralcanvas.example.com/api-docs.html",
+      "url": "https://neural-canvas-seven.vercel.app/api-docs.html",
       "author": {
         "@type": "Organization",
         "name": "Neural Canvas"
@@ -70,7 +71,7 @@
             <a href="/" class="nav-link">Home</a>
             <a href="/image-generator.html" class="nav-link">Image Generator</a>
             <a href="/website-builder.html" class="nav-link">Website Builder</a>
-            
+            <a href="/chatbot.html" class="nav-link">Chatbot</a>
             <a href="/api-docs.html" class="nav-link active">API Docs</a>
             <a href="/image-edit9r.html" class="nav-link">Image Editor</a>
         </nav>
@@ -82,7 +83,7 @@
     </header>
 
     <main class="container page-container">
-        <div id="apiSection" class="tool-wrapper">
+        <div id="apiSection" class="tool-wrapper" data-animate>
             <div class="section-header">
                 <h2>API Documentation</h2>
                 <p>Integrate our powerful AI image editing model into your own applications.</p>
@@ -131,6 +132,8 @@
     <div id="loading" class="loading-overlay" style="display:none;"><div class="loading-content"><div class="spinner"></div><p class="loading-text">Processing with AI...</p></div></div>
     <div id="errorMessage" class="error-notification" style="display:none;"><div class="error-content"><span class="error-icon">⚠️</span><span class="error-text"></span><button onclick="this.parentElement.parentElement.style.display='none'">×</button></div></div>
     <div id="globalAppStatus" class="generator-status-message" style="display: none;"></div>
+
+    <button id="backToTop" class="back-to-top" aria-label="Back to top">↑</button>
 
     <script type="module" src="script.js"></script>
 </body>

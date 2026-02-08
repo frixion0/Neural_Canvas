@@ -4,15 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Image Generator | Neural Canvas</title>
-    <meta name="description" content="Generate stunning AI images from text with Neural Canvas. Create photorealistic art, anime, and more with advanced models. Perfect for artists and designers.">
-    <link rel="canonical" href="https://neuralcanvas.example.com/image-generator.html" />
+    <meta name="description" content="Generate stunning AI images from text with Neural Canvas. Create photorealistic art, anime, and cinematic visuals with advanced AI models. Perfect for artists and designers.">
+    <meta name="keywords" content="AI Image Generator, Text to Image, Digital Art AI, Neural Canvas, Imagen 3, FLUX AI, AI Art">
+    <link rel="canonical" href="https://neural-canvas-seven.vercel.app/image-generator.html" />
     <!-- Open Graph / Facebook -->
     <meta property="og:site_name" content="Neural Canvas">
     <meta property="og:type" content="website">
     <meta property="og:title" content="AI Image Generator | Neural Canvas">
     <meta property="og:description" content="Generate stunning AI images from text with Neural Canvas. Create photorealistic art, anime, and more with advanced models. Perfect for artists and designers.">
-    <meta property="og:url" content="https://neuralcanvas.example.com/image-generator.html">
-    <meta property="og:image" content="https://neuralcanvas.example.com/social-share-image.png">
+    <meta property="og:url" content="https://neural-canvas-seven.vercel.app/image-generator.html">
+    <meta property="og:image" content="https://neural-canvas-seven.vercel.app/social-share-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <!-- Twitter -->
@@ -21,7 +22,7 @@
     <meta name="twitter:creator" content="@NeuralCanvasAI">
     <meta name="twitter:title" content="AI Image Generator | Neural Canvas">
     <meta name="twitter:description" content="Generate stunning AI images from text with Neural Canvas. Create photorealistic art, anime, and more with advanced models. Perfect for artists and designers.">
-    <meta name="twitter:image" content="https://neuralcanvas.example.com/social-share-image.png">
+    <meta name="twitter:image" content="https://neural-canvas-seven.vercel.app/social-share-image.png">
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,7 +35,7 @@
       "description": "Create stunning, high-resolution images from text prompts using advanced AI models. Generate photorealistic art, anime, cinematic scenes, and more.",
       "applicationCategory": "http://schema.org/MultimediaApplication",
       "operatingSystem": "Web",
-      "url": "https://neuralcanvas.example.com/image-generator.html"
+      "url": "https://neural-canvas-seven.vercel.app/image-generator.html"
     }
     </script>
     <meta name="google-site-verification" content="r_Cs1I095TCgM9oTeFqXpnCRIDX28erq88hy1KZfTbM" />
@@ -58,6 +59,7 @@
             <a href="/" class="nav-link">Home</a>
             <a href="/image-generator.html" class="nav-link active">Image Generator</a>
             <a href="/website-builder.html" class="nav-link">Website Builder</a>
+            <a href="/chatbot.html" class="nav-link">Chatbot</a>
             <a href="/api-docs.html" class="nav-link">API Docs</a>
             <a href="/image-edit9r.html" class="nav-link">Image Editor</a>
         </nav>
@@ -69,7 +71,7 @@
     </header>
 
     <main class="container page-container">
-        <div id="imageGeneratorSection" class="tool-wrapper">
+        <div id="imageGeneratorSection" class="tool-wrapper" data-animate>
             <div class="section-header">
                 <h2>AI Image Generator</h2>
                 <p>Create stunning visuals and digital art from text descriptions with state-of-the-art AI</p>
@@ -127,6 +129,8 @@
                         Download
                     </button>
                     <button class="action-btn" id="openImageInNewTabButton">Open in New Tab</button>
+                    <button class="action-btn secondary-action" id="shareOnXButton">Share on X</button>
+                    <button class="action-btn secondary-action" id="shareOnFBButton">Share on FB</button>
                     <!-- Edit with AI button is dynamically added by script.js -->
                 </div>
             </div>
@@ -177,6 +181,8 @@
             <img id="imageViewerImg" alt="Generated AI Image Preview">
         </div>
     </div>
+
+    <button id="backToTop" class="back-to-top" aria-label="Back to top">↑</button>
 
     <script type="module" src="script.js"></script>
 </body>

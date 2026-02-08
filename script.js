@@ -152,6 +152,8 @@ function initImageGenerator() {
         resultContainer: document.getElementById('generatedImageContainer'),
         downloadBtn: document.getElementById('generatedImageDownloadButton'),
         openNewTabBtn: document.getElementById('openImageInNewTabButton'),
+        shareXBtn: document.getElementById('shareOnXButton'),
+        shareFBBtn: document.getElementById('shareOnFBButton'),
         enhanceBtn: document.getElementById('enhanceImagePrompt'),
         clearBtn: document.getElementById('clearImagePromptBtn'),
         modal: document.getElementById('modelSelectionModal'),
@@ -299,6 +301,17 @@ function initImageGenerator() {
             elements.imageViewerImg.src = elements.resultImg.src;
             elements.imageViewerModal.style.display = 'flex';
         }
+    });
+
+    elements.shareXBtn.addEventListener('click', () => {
+        const text = encodeURIComponent("Check out this amazing image I generated with Neural Canvas! 🎨✨");
+        const url = encodeURIComponent(window.location.href);
+        window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+    });
+
+    elements.shareFBBtn.addEventListener('click', () => {
+        const url = encodeURIComponent(window.location.href);
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
     });
 
     // Model selection modal logic
@@ -891,7 +904,7 @@ function createEnhancer(promptElementId, statusElementId) {
         displayStatusMessage(statusElementId, 'loading', 'Enhancing prompt...');
         try {
             const response = await clients.enhancer.chat.completions.create({
-                model: "provider-6/gpt-4.1-mini",
+                model: "provider-6/gpt-4o-mini",
                 messages: [{ role: "user", content: `Enhance this prompt for AI generation: "${originalPrompt}". Make it more detailed and creative. Return only the enhanced prompt.` }],
             });
             promptElement.value = response.choices[0].message.content;
@@ -901,6 +914,47 @@ function createEnhancer(promptElementId, statusElementId) {
             playSound('error_buzz');
         }
     };
+}
+
+function initScrollAnimations() {
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('animate-in-active');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+
+    document.querySelectorAll('[data-animate]').forEach(el => {
+        el.classList.add('animate-in-init');
+        observer.observe(el);
+    });
+}
+
+function initBackToTop() {
+    const backToTopBtn = document.getElementById('backToTop');
+    if (!backToTopBtn) return;
+
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 300) {
+            backToTopBtn.classList.add('visible');
+        } else {
+            backToTopBtn.classList.remove('visible');
+        }
+    });
+
+    backToTopBtn.addEventListener('click', () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
 }
 
 function handleMobileMenu() {
@@ -983,6 +1037,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Shared components
     handleMobileMenu();
+    initScrollAnimations();
+    initBackToTop();
 
     // Page-specific initializations
     if (document.body.classList.contains('image-generator-page')) {
@@ -997,4 +1053,164 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (document.body.classList.contains('image-edit9r-page')) {
         initImageEditor();
     }
+    if (document.body.classList.contains('chatbot-page')) {
+        initChatbot();
+    }
 });
+
+function initChatbot() {
+    const elements = {
+        input: document.getElementById('botInput'),
+        sendBtn: document.getElementById('sendBotButton'),
+        messages: document.getElementById('chatMessages'),
+        status: document.getElementById('botStatus'),
+        imageUpload: document.getElementById('chatImageUpload'),
+        imagePreviewContainer: document.getElementById('chatImagePreviewContainer'),
+        imagePreview: document.getElementById('chatImagePreview'),
+        removeImageBtn: document.getElementById('removeChatImageBtn'),
+    };
+
+    let selectedImageBase64 = null;
+
+    // Auto-resize textarea
+    elements.input.addEventListener('input', () => {
+        elements.input.style.height = 'auto';
+        elements.input.style.height = (elements.input.scrollHeight) + 'px';
+    });
+
+    // Handle Image Upload
+    elements.imageUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                selectedImageBase64 = event.target.result;
+                elements.imagePreview.src = selectedImageBase64;
+                elements.imagePreviewContainer.style.display = 'flex';
+                playSound('tab_click');
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    elements.removeImageBtn.addEventListener('click', () => {
+        selectedImageBase64 = null;
+        elements.imagePreview.src = '';
+        elements.imagePreviewContainer.style.display = 'none';
+        elements.imageUpload.value = '';
+        playSound('tab_click');
+    });
+
+    function appendMessage(role, text, image = null) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${role}-message`;
+
+        const avatar = role === 'bot' ? '🤖' : '👤';
+
+        let imageHtml = image ? `<img src="${image}" class="message-image" alt="Uploaded image">` : '';
+
+        messageDiv.innerHTML = `
+            <div class="message-content">
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-text-wrapper">
+                    <div class="message-text">${text.replace(/\n/g, '<br>')}</div>
+                    ${imageHtml}
+                    ${role === 'bot' ? '<button class="copy-msg-btn" title="Copy message">📋</button>' : ''}
+                </div>
+            </div>
+        `;
+
+        elements.messages.appendChild(messageDiv);
+        elements.messages.scrollTop = elements.messages.scrollHeight;
+
+        if (role === 'bot') {
+            const copyBtn = messageDiv.querySelector('.copy-msg-btn');
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(text).then(() => {
+                    copyBtn.textContent = '✅';
+                    setTimeout(() => { copyBtn.textContent = '📋'; }, 2000);
+                });
+            });
+        }
+    }
+
+    function showTypingIndicator() {
+        const indicator = document.createElement('div');
+        indicator.className = 'typing-indicator';
+        indicator.id = 'typingIndicator';
+        indicator.innerHTML = `
+            <div class="typing-dots">
+                <span></span><span></span><span></span>
+            </div>
+        `;
+        elements.messages.appendChild(indicator);
+        elements.messages.scrollTop = elements.messages.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+        const indicator = document.getElementById('typingIndicator');
+        if (indicator) indicator.remove();
+    }
+
+    async function handleSendMessage() {
+        const text = elements.input.value.trim();
+        if (!text && !selectedImageBase64) return;
+
+        playSound('tab_click');
+        appendMessage('user', text, selectedImageBase64);
+
+        // Reset input and preview
+        const currentText = text;
+        const currentImage = selectedImageBase64;
+        elements.input.value = '';
+        elements.input.style.height = 'auto';
+        selectedImageBase64 = null;
+        elements.imagePreviewContainer.style.display = 'none';
+        elements.imageUpload.value = '';
+
+        elements.sendBtn.disabled = true;
+        elements.sendBtn.classList.add('loading');
+        showTypingIndicator();
+
+        try {
+            let messages = [{ role: "user", content: [] }];
+
+            if (currentText) {
+                messages[0].content.push({ type: "text", text: currentText });
+            }
+
+            if (currentImage) {
+                messages[0].content.push({
+                    type: "image_url",
+                    image_url: { url: currentImage }
+                });
+            }
+
+            const response = await clients.enhancer.chat.completions.create({
+                model: "provider-6/gpt-4o-mini",
+                messages: messages,
+            });
+
+            removeTypingIndicator();
+            const botResponse = response.choices[0].message.content;
+            appendMessage('bot', botResponse);
+
+        } catch (error) {
+            removeTypingIndicator();
+            console.error("Chatbot error:", error);
+            displayStatusMessage('botStatus', 'error', `Error: ${error.message}`);
+            playSound('error_buzz');
+        } finally {
+            elements.sendBtn.disabled = false;
+            elements.sendBtn.classList.remove('loading');
+        }
+    }
+
+    elements.sendBtn.addEventListener('click', handleSendMessage);
+    elements.input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    });
+}

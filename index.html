@@ -3,15 +3,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neural Canvas: AI-Powered Creative Suite for Digital Creators</title>
-    <meta name="description" content="Neural Canvas is the ultimate AI suite for creators. Generate stunning images and build websites to bring your ideas to life instantly.">
-    <link rel="canonical" href="https://neuralcanvas.example.com/" />
+    <meta name="description" content="Neural Canvas is the ultimate AI-powered creative suite for digital creators. Generate stunning images, build responsive websites, and chat with an intelligent AI assistant instantly.">
+    <meta name="keywords" content="AI, Image Generator, Website Builder, Chatbot, Creative Suite, Digital Art, AI Editor, Neural Canvas">
+    <link rel="canonical" href="https://neural-canvas-seven.vercel.app/" />
     <!-- Open Graph / Facebook -->
     <meta property="og:site_name" content="Neural Canvas">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Neural Canvas: AI-Powered Creative Suite for Digital Creators">
     <meta property="og:description" content="Neural Canvas is the ultimate AI suite for creators. Generate stunning images and build websites to bring your ideas to life instantly.">
-    <meta property="og:url" content="https://neuralcanvas.example.com/">
-    <meta property="og:image" content="https://neuralcanvas.example.com/social-share-image.png">
+    <meta property="og:url" content="https://neural-canvas-seven.vercel.app/">
+    <meta property="og:image" content="https://neural-canvas-seven.vercel.app/social-share-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <!-- Twitter -->
@@ -20,7 +21,7 @@
     <meta name="twitter:creator" content="@NeuralCanvasAI">
     <meta name="twitter:title" content="Neural Canvas: AI-Powered Creative Suite for Digital Creators">
     <meta name="twitter:description" content="Neural Canvas is the ultimate AI suite for creators. Generate stunning images and build websites to bring your ideas to life instantly.">
-    <meta name="twitter:image" content="https://neuralcanvas.example.com/social-share-image.png">
+    <meta name="twitter:image" content="https://neural-canvas-seven.vercel.app/social-share-image.png">
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,7 +31,7 @@
       "@context": "http://schema.org",
       "@type": "WebSite",
       "name": "Neural Canvas",
-      "url": "https://neuralcanvas.example.com/",
+      "url": "https://neural-canvas-seven.vercel.app/",
       "description": "Neural Canvas is an AI-powered creative suite for generating stunning images and building responsive websites instantly.",
       "potentialAction": {
         "@type": "SearchAction",
@@ -60,6 +61,7 @@
             <a href="/" class="nav-link active">Home</a>
             <a href="/image-generator.html" class="nav-link">Image Generator</a>
             <a href="/website-builder.html" class="nav-link">Website Builder</a>
+            <a href="/chatbot.html" class="nav-link">Chatbot</a>
             <a href="/api-docs.html" class="nav-link">API Docs</a>
             <a href="/image-edit9r.html" class="nav-link">Image Editor</a>
         </nav>
@@ -71,7 +73,7 @@
     </header>
 
     <main class="container">
-        <section class="hero-section">
+        <section class="hero-section" data-animate>
             <div class="header-glow"></div>
             <h1 class="main-title">
                 <span class="title-glow">Create</span>
@@ -82,7 +84,7 @@
             <a href="/image-generator.html" class="hero-cta">Start Creating Now ✨</a>
         </section>
 
-        <section class="features-section">
+        <section class="features-section" data-animate>
             <div class="section-header">
                 <h2>Explore Our AI Toolkit</h2>
                 <p>A complete suite of tools designed to amplify your creativity and productivity.</p>
@@ -116,27 +118,76 @@
             </div>
         </section>
 
-        <section class="features-section why-choose-us">
+        <section class="features-section why-choose-us" data-animate>
             <div class="section-header">
                 <h2>Why Choose Neural Canvas?</h2>
                 <p>Unlock unparalleled creative potential with a suite designed for efficiency and power.</p>
             </div>
             <div class="features-grid">
-                <div class="feature-card animate-in">
+                <div class="feature-card animate-in" data-animate>
                     <div class="feature-icon">🚀</div>
                     <h3>Unified Workflow</h3>
                     <p>Stop switching between disconnected tools. Neural Canvas brings image generation, web development, and conversational AI into one seamless interface. Enhance your productivity and maintain your creative flow without friction.</p>
                 </div>
-                <div class="feature-card animate-in">
+                <div class="feature-card animate-in" data-animate>
                     <div class="feature-icon">🧠</div>
                     <h3>State-of-the-Art AI</h3>
                     <p>Leverage a curated selection of the industry's most powerful AI models. From lightning-fast image generators to highly capable code and language models, you always have the best tool for the job right at your fingertips.</p>
                 </div>
-                <div class="feature-card animate-in">
+                <div class="feature-card animate-in" data-animate>
                     <div class="feature-icon">💻</div>
                     <h3>Developer-Friendly</h3>
                     <p>Go beyond the user interface with our simple and robust Developer API. Integrate the creative power of Neural Canvas directly into your own applications, services, and workflows with just a few lines of code.</p>
                 </div>
+            </div>
+        </section>
+
+        <section class="features-section testimonials" data-animate>
+            <div class="section-header">
+                <h2>What Creators Are Saying</h2>
+                <p>Join thousands of artists and developers who are pushing boundaries with Neural Canvas.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card animate-in" data-animate>
+                    <div class="feature-icon">⭐</div>
+                    <p>"Neural Canvas has completely transformed my workflow. The AI Website Builder alone saved me days of coding. It's truly a game-changer!"</p>
+                    <h4 style="margin-top: 20px; color: var(--neon-cyan);">— Sarah Jenkins, Digital Artist</h4>
+                </div>
+                <div class="feature-card animate-in" data-animate>
+                    <div class="feature-icon">⭐</div>
+                    <p>"The image quality from the Imagen 3 model is unparalleled. I use it for all my concept art now. The interface is sleek and very intuitive."</p>
+                    <h4 style="margin-top: 20px; color: var(--neon-cyan);">— Marcus Thorne, Lead Designer</h4>
+                </div>
+                <div class="feature-card animate-in" data-animate>
+                    <div class="feature-icon">⭐</div>
+                    <p>"Integrating their API into my app was a breeze. The documentation is clear, and the response times are incredibly fast. Highly recommended!"</p>
+                    <h4 style="margin-top: 20px; color: var(--neon-cyan);">— Alex Chen, Full-stack Developer</h4>
+                </div>
+            </div>
+        </section>
+
+        <section class="features-section faq-section" data-animate>
+            <div class="section-header">
+                <h2>Frequently Asked Questions</h2>
+                <p>Got questions? We've got answers to help you get started.</p>
+            </div>
+            <div style="max-width: 800px; margin: 0 auto;">
+                <details class="faq-item animate-in" data-animate>
+                    <summary>What is Neural Canvas?</summary>
+                    <p>Neural Canvas is an all-in-one AI-powered creative suite that allows you to generate images, build websites, and chat with an intelligent assistant, all from a single platform.</p>
+                </details>
+                <details class="faq-item animate-in" data-animate>
+                    <summary>Is there a limit to how many images I can generate?</summary>
+                    <p>Our standard plan offers generous generation limits. For heavy users, our API provides scalable options to meet any demand.</p>
+                </details>
+                <details class="faq-item animate-in" data-animate>
+                    <summary>How does the AI Website Builder work?</summary>
+                    <p>Simply describe the website you want, including style and purpose. Our AI generates the complete HTML, CSS, and JavaScript code instantly, which you can then preview, edit, and download.</p>
+                </details>
+                <details class="faq-item animate-in" data-animate>
+                    <summary>Can I use the generated content commercially?</summary>
+                    <p>Yes! Content generated through Neural Canvas is yours to use for both personal and commercial projects, subject to our terms of service.</p>
+                </details>
             </div>
         </section>
     </main>
@@ -166,6 +217,8 @@
     </div>
 
     <div id="globalAppStatus" class="generator-status-message" style="display: none;"></div>
+
+    <button id="backToTop" class="back-to-top" aria-label="Back to top">↑</button>
 
     <script type="module" src="script.js"></script>
 </body>

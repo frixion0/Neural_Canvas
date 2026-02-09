@@ -4,15 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Website Builder | Neural Canvas</title>
-    <meta name="description" content="Instantly build responsive websites with the Neural Canvas AI Website Builder. Describe your vision, and our AI generates the complete code for you in seconds.">
-    <link rel="canonical" href="https://neuralcanvas.example.com/website-builder.html" />
+    <meta name="description" content="Build complete, responsive websites instantly with Neural Canvas AI. Describe your vision and watch our AI generate production-ready HTML, CSS, and JavaScript in seconds.">
+    <meta name="keywords" content="AI Website Builder, No-code Web Design, AI HTML Generator, Neural Canvas, Responsive Web Design">
+    <link rel="canonical" href="https://neural-canvas-seven.vercel.app/website-builder.html" />
     <!-- Open Graph / Facebook -->
     <meta property="og:site_name" content="Neural Canvas">
     <meta property="og:type" content="website">
     <meta property="og:title" content="AI Website Builder | Neural Canvas">
     <meta property="og:description" content="Instantly build responsive websites with the Neural Canvas AI Website Builder. Describe your vision, and our AI generates the complete code for you in seconds.">
-    <meta property="og:url" content="https://neuralcanvas.example.com/website-builder.html">
-    <meta property="og:image" content="https://neuralcanvas.example.com/social-share-image.png">
+    <meta property="og:url" content="https://neural-canvas-seven.vercel.app/website-builder.html">
+    <meta property="og:image" content="https://neural-canvas-seven.vercel.app/social-share-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <!-- Twitter -->
@@ -21,7 +22,7 @@
     <meta name="twitter:creator" content="@NeuralCanvasAI">
     <meta name="twitter:title" content="AI Website Builder | Neural Canvas">
     <meta name="twitter:description" content="Instantly build responsive websites with the Neural Canvas AI Website Builder. Describe your vision, and our AI generates the complete code for you in seconds.">
-    <meta name="twitter:image" content="https://neuralcanvas.example.com/social-share-image.png">
+    <meta name="twitter:image" content="https://neural-canvas-seven.vercel.app/social-share-image.png">
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,7 +35,7 @@
       "description": "Build complete, responsive websites instantly. Just describe your website, and our AI will generate the HTML, CSS, and JavaScript for you.",
       "applicationCategory": "http://schema.org/WebApplication",
       "operatingSystem": "Web",
-      "url": "https://neuralcanvas.example.com/website-builder.html"
+      "url": "https://neural-canvas-seven.vercel.app/website-builder.html"
     }
     </script>
     <meta name="google-site-verification" content="r_Cs1I095TCgM9oTeFqXpnCRIDX28erq88hy1KZfTbM" />
@@ -58,6 +59,7 @@
             <a href="/" class="nav-link">Home</a>
             <a href="/image-generator.html" class="nav-link">Image Generator</a>
             <a href="/website-builder.html" class="nav-link active">Website Builder</a>
+            <a href="/chatbot.html" class="nav-link">Chatbot</a>
             <a href="/api-docs.html" class="nav-link">API Docs</a>
             <a href="/image-edit9r.html" class="nav-link">Image Editor</a>
         </nav>
@@ -69,7 +71,7 @@
     </header>
 
     <main class="container page-container">
-        <div id="builderSection" class="tool-wrapper">
+        <div id="builderSection" class="tool-wrapper" data-animate>
             <div class="section-header">
                 <h2>AI Website Builder</h2>
                 <p>Build complete, responsive websites instantly with AI-powered code generation</p>
@@ -207,6 +209,8 @@
             <button class="clear-btn" id="clearWebsiteProjectsModalBtn" style="margin-top: 25px;">Clear Projects</button>
         </div>
     </div>
+
+    <button id="backToTop" class="back-to-top" aria-label="Back to top">↑</button>
 
     <script type="module" src="script.js"></script>
 </body>

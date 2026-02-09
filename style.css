@@ -142,7 +142,7 @@ input, textarea, pre, code {
     z-index: 100;
 }
 .logo { font-family: 'Orbitron', monospace; font-size: 1.8rem; font-weight: 900; text-decoration: none; }
-.logo-glow { color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan), 0 0 20px rgba(0, 232, 255, 0.5); }
+.logo-glow { color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan), 0 0 20px rgba(0, 232, 255, 0.7), 0 0 30px rgba(0, 232, 255, 0.4); }
 .logo-accent { color: var(--text-primary); }
 
 .main-nav { display: flex; gap: 30px; } /* Slightly less gap */
@@ -174,12 +174,64 @@ input, textarea, pre, code {
     top: -60px;
     left: 50%;
     transform: translateX(-50%);
-    width: 400px;
-    height: 120px;
-    background: radial-gradient(ellipse, rgba(0, 232, 255, 0.3), transparent);
-    filter: blur(50px);
+    width: 450px;
+    height: 150px;
+    background: radial-gradient(ellipse, rgba(0, 232, 255, 0.4), transparent);
+    filter: blur(80px);
     animation: pulse-glow 3.5s ease-in-out infinite alternate;
     z-index: -1;
+    opacity: 0.8;
+}
+
+.faq-item {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-sm);
+    margin-bottom: 15px;
+    padding: 10px;
+    transition: all 0.3s ease;
+}
+
+.faq-item summary {
+    padding: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--neon-cyan);
+    list-style: none;
+    position: relative;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+}
+
+.faq-item summary::-webkit-details-marker {
+    display: none;
+}
+
+.faq-item summary::after {
+    content: '+';
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.5rem;
+    transition: transform 0.3s ease;
+}
+
+.faq-item[open] summary::after {
+    transform: translateY(-50%) rotate(45deg);
+}
+
+.faq-item p {
+    padding: 15px;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--glass-border);
+    margin-top: 10px;
+    line-height: 1.7;
+}
+
+.faq-item:hover {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 15px rgba(0, 232, 255, 0.1);
 }
 
 @keyframes pulse-glow {
@@ -494,8 +546,8 @@ textarea:focus {
 
 .action-btn:hover {
     transform: translateY(-5px);
-    box-shadow: var(--shadow-medium), var(--shadow-neon);
-    filter: brightness(1.1);
+    box-shadow: var(--shadow-medium), 0 0 30px var(--neon-cyan), 0 0 50px rgba(157, 56, 250, 0.4);
+    filter: brightness(1.2);
 }
 
 .action-btn:disabled {
@@ -1084,6 +1136,14 @@ textarea:focus {
     box-shadow: 0 0 10px rgba(157, 56, 250, 0.3);
 }
 
+.message-text-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 100%;
+}
+
 .message-text {
     background: var(--bg-tertiary);
     padding: 16px;
@@ -1095,6 +1155,35 @@ textarea:focus {
     color: var(--text-primary);
     box-shadow: var(--shadow-light);
     font-size: 1rem;
+}
+
+.copy-msg-btn {
+    position: absolute;
+    bottom: -10px;
+    right: -10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+    opacity: 0;
+    z-index: 2;
+}
+
+.message:hover .copy-msg-btn {
+    opacity: 1;
+}
+
+.copy-msg-btn:hover {
+    background: var(--neon-cyan);
+    color: var(--bg-primary);
+    transform: scale(1.1);
 }
 
 .user-message .message-text {
@@ -1652,6 +1741,49 @@ textarea:focus {
 }
 
 /* Animations for elements appearing on scroll */
+.animate-in-init {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+.animate-in-active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.back-to-top {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 0;
+    visibility: hidden;
+    z-index: 999;
+    box-shadow: var(--shadow-neon);
+}
+
+.back-to-top.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.back-to-top:hover {
+    background: var(--neon-cyan);
+    color: var(--bg-primary);
+    transform: translateY(-5px);
+}
+
 .animate-in {
     opacity: 0;
     transform: translateY(20px);

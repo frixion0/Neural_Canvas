@@ -1,1216 +1,667 @@
 import { OpenAI } from 'https://cdn.skypack.dev/openai';
 
-// --- GLOBAL VARIABLES & SETUP ---
+/**
+ * Neural Canvas - AI Suite
+ * Standardized logic for Image Generation, Web Building, and Intelligent Chat.
+ */
 
-let selectedFile = null;
-let currentSelectedImageStyle = 'photorealistic';
-let currentSelectedImageModel = 'img3'; // Default to img3 as requested
-let currentWebsiteCode = '';
-let currentWebsitePrompt = '';
-
-const clients = {
-    image: new OpenAI({ apiKey: 'ddc-a4f-25c62da6794b4fdf9720708012108518', baseURL: "https://api.a4f.co/v1", dangerouslyAllowBrowser: true }),
-    builder: new OpenAI({ apiKey: 'ddc-a4f-25c62da6794b4fdf9720708012108518', baseURL: "https://api.a4f.co/v1", dangerouslyAllowBrowser: true }),
-    enhancer: new OpenAI({ apiKey: 'ddc-a4f-25c62da6794b4fdf9720708012108518', baseURL: "https://api.a4f.co/v1", dangerouslyAllowBrowser: true }),
+// --- CONFIGURATION ---
+/**
+ * SECURITY WARNING:
+ * Hardcoding API keys in frontend code is NOT recommended for production.
+ * Ideally, these requests should be routed through a backend proxy
+ * where the keys are stored in environment variables.
+ */
+const CONFIG = {
+    // SECURITY WARNING: API keys should ideally be handled by a backend proxy.
+    API_KEY: 'ddc-a4f-25c62da6794b4fdf9720708012108518',
+    BASE_URL: "https://api.a4f.co/v1",
+    PROXY_URL: 'https://9000-firebase-studio-1754744124282.cluster-nzwlpk54dvagsxetkvxzbvslyi.cloudworkstations.dev/api/proxy',
+    MANIPULATE_API: 'https://ai-image-editor-eta.vercel.app/api/manipulate'
 };
 
-// --- LOCAL STORAGE & HISTORY UTILITIES ---
-const MAX_HISTORY_ITEMS = 12; // Store up to 12 recent items
-function saveToHistory(key, newItem) {
-    try {
-        const history = JSON.parse(localStorage.getItem(key)) || [];
-        history.unshift(newItem); // Add new item to the beginning
-        if (history.length > MAX_HISTORY_ITEMS) {
-            history.pop(); // Remove the oldest item if history exceeds max size
-        }
-        localStorage.setItem(key, JSON.stringify(history));
-    } catch (error) {
-        console.error("Failed to save to history:", error);
-        // Handle potential storage full errors
-        if (error.name === 'QuotaExceededError') {
-             displayStatusMessage('globalAppStatus', 'error', 'Storage is full. Could not save to history.', 5000);
-        }
-    }
-}
+const clients = {
+    image: new OpenAI({ apiKey: CONFIG.API_KEY, baseURL: CONFIG.BASE_URL, dangerouslyAllowBrowser: true }),
+    builder: new OpenAI({ apiKey: CONFIG.API_KEY, baseURL: CONFIG.BASE_URL, dangerouslyAllowBrowser: true }),
+    enhancer: new OpenAI({ apiKey: CONFIG.API_KEY, baseURL: CONFIG.BASE_URL, dangerouslyAllowBrowser: true }),
+};
 
-function loadFromHistory(key) {
-    try {
-        return JSON.parse(localStorage.getItem(key)) || [];
-    } catch (error) {
-        console.error("Failed to load history:", error);
-        return [];
-    }
-}
-
-function clearHistory(key) {
-    try {
-        localStorage.removeItem(key);
-    } catch (error) {
-        console.error("Failed to clear history:", error);
-    }
-}
-
-// --- SOUND EFFECTS ---
-let audioContext;
-const soundBuffers = {};
+// --- SOUND SYSTEM ---
+const sounds = {};
 async function loadSound(name, url) {
-    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const response = await fetch(url);
-    const arrayBuffer = await response.arrayBuffer();
-    soundBuffers[name] = await audioContext.decodeAudioData(arrayBuffer);
-}
-function playSound(name) {
-    if (!soundBuffers[name]) return;
-    const source = audioContext.createBufferSource();
-    source.buffer = soundBuffers[name];
-    source.connect(audioContext.destination);
-    source.start(0);
+    try {
+        const audio = new Audio(url);
+        sounds[name] = audio;
+    } catch (e) { /* Fail silently */ }
 }
 
-// --- UTILITY FUNCTIONS ---
-function displayStatusMessage(elementId, type, message, duration = 3000) {
+function playSound(name) {
+    if (sounds[name]) {
+        sounds[name].currentTime = 0;
+        sounds[name].play().catch(() => {});
+    }
+}
+
+// --- CORE UTILITIES ---
+function displayStatusMessage(elementId, type, message, duration = 5000) {
     const statusDiv = document.getElementById(elementId);
     if (!statusDiv) return;
     statusDiv.textContent = message;
     statusDiv.className = `generator-status-message ${type}`;
     statusDiv.style.display = 'block';
-    if (type !== 'loading') {
-        setTimeout(() => { statusDiv.style.display = 'none'; }, duration);
-    }
-}
-function clearStatusMessage(elementId) {
-    const statusDiv = document.getElementById(elementId);
-    if (statusDiv) statusDiv.style.display = 'none';
+    if (type !== 'loading' && duration > 0) setTimeout(() => { statusDiv.style.display = 'none'; }, duration);
 }
 
-function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
-
-// --- IMAGE GENERATION PROXY ---
-async function generateImageFromProxy(model, promptText) {
-    // This is the specific proxy endpoint used for img3, img4, uncen.
-    const apiUrl = 'https://9000-firebase-studio-1754744124282.cluster-nzwlpk54dvagsxetkvxzbvslyi.cloudworkstations.dev/api/proxy';
+function saveToHistory(key, newItem) {
     try {
-        const response = await fetch(apiUrl, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: model, prompt: promptText }),
-        });
-        // If server returned non-OK, try to read any JSON/text error body for a clearer message
-        if (!response.ok) {
-            let bodyText = '';
-            try {
-                const contentType = response.headers.get('content-type') || '';
-                bodyText = contentType.includes('application/json') ? JSON.stringify(await response.json()) : await response.text();
-            } catch (parseErr) {
-                bodyText = '<unable to parse error body>';
-            }
-            throw new Error(`Proxy Error ${response.status}: ${response.statusText} - ${bodyText}`);
-        }
-        const data = await response.json();
-        // For 'uncen' return the full raw JSON so caller can show raw response as requested
-        if (model === 'uncen') {
-            return { raw: data };
-        }
-        return data.imageUrl;
-    } catch (err) {
-        // Network errors or other unexpected failures will be bubbled with their real message
-        throw new Error(`Proxy request failed: ${err.message}`);
-    }
+        const history = JSON.parse(localStorage.getItem(key)) || [];
+        history.unshift({ ...newItem, id: Date.now() });
+        if (history.length > 20) history.pop();
+        localStorage.setItem(key, JSON.stringify(history));
+    } catch (e) { console.error(e); }
 }
 
-// --- DATA ---
+function loadFromHistory(key) {
+    try { return JSON.parse(localStorage.getItem(key)) || []; } catch (e) { return []; }
+}
+
+async function generateImageFromProxy(model, promptText) {
+    const response = await fetch(CONFIG.PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, prompt: promptText }),
+    });
+    if (!response.ok) throw new Error('Neural Node connection error. Please try again.');
+    const data = await response.json();
+    return model === 'uncen' ? data.imageUrl || (data.raw && data.raw.imageUrl) : data.imageUrl;
+}
+
+// --- IMAGE GENERATOR ---
+let currentSelectedImageModel = 'img3';
 const imageModels = [
-    { id: 'img3', name: 'Imagen 3 (Google)', description: 'Advanced model for high-quality, photorealistic results. Uses proxy.', isUncen: false },
-    { id: 'img4', name: 'Imagen 4 (Google)', description: 'Next generation of Imagen, even better quality. Uses proxy.', isUncen: false },
-    { id: 'uncen', name: 'Uncensored', description: 'Generates images without content restrictions (use responsibly). Uses proxy.', isUncen: true },
-    { id: 'provider-2/FLUX.1-schnell-v2', name: 'FLUX.1 Schnell v2', description: 'Optimized for speed and quality, excellent for general use.', isUncen: false },
-    { id: 'provider-3/FLUX.1-dev', name: 'FLUX.1 Dev', description: 'Experimental version with cutting-edge features.', isUncen: false },
-    { id: 'provider-6/qwen-image', name: 'Qwen Image', description: 'Versatile model known for detailed and artistic outputs.', isUncen: false },
-    { id: 'provider-6/sana-1.5', name: 'Sana 1.5', description: 'High-fidelity image generation, good for realistic imagery.', isUncen: false },
-    { id: 'provider-1/FLUX.1-schnell', name: 'FLUX.1 Schnell', description: 'A fast and efficient model for quick image generation.', isUncen: false },
-    { id: 'provider-6/sana-1.5-flash', name: 'Sana 1.5 Flash', description: 'Extremely fast generation with good quality for rapid prototyping.', isUncen: false }
+    { id: 'img3', name: 'Imagen 3 (Standard)', description: 'High-quality photorealistic synthesis.' },
+    { id: 'img4', name: 'Imagen 4 (Pro)', description: 'Next-gen detail and composition.' },
+    { id: 'uncen', name: 'Uncensored (Experimental)', description: 'No content restrictions.' },
+    { id: 'provider-2/FLUX.1-schnell-v2', name: 'FLUX Schnell', description: 'Optimized for speed.' }
 ];
 
-// --- PAGE-SPECIFIC INITIALIZATION ---
-
 function initImageGenerator() {
-    const historyKey = 'imageHistory';
     const elements = {
         prompt: document.getElementById('imageGeneratorPromptInput'),
-        size: document.getElementById('imageSize'),
-        style: document.getElementById('imageStyle'),
-        modelSelector: document.getElementById('imageModelSelector'),
-        selectedModelText: document.getElementById('selectedImageModelText'),
-        generateBtn: document.getElementById('generateImageButton'),
-        resultImg: document.getElementById('generatedImage'),
-        resultContainer: document.getElementById('generatedImageContainer'),
-        downloadBtn: document.getElementById('generatedImageDownloadButton'),
-        openNewTabBtn: document.getElementById('openImageInNewTabButton'),
-        shareXBtn: document.getElementById('shareOnXButton'),
-        shareFBBtn: document.getElementById('shareOnFBButton'),
-        enhanceBtn: document.getElementById('enhanceImagePrompt'),
-        clearBtn: document.getElementById('clearImagePromptBtn'),
+        btn: document.getElementById('generateImageButton'),
+        res: document.getElementById('generatedImage'),
+        container: document.getElementById('generatedImageContainer'),
+        selector: document.getElementById('imageModelSelector'),
+        selText: document.getElementById('selectedImageModelText'),
         modal: document.getElementById('modelSelectionModal'),
-        closeModalBtn: document.querySelector('#modelSelectionModal .close-modal-btn'),
-        modelCardsContainer: document.getElementById('modelCardsContainer'),
-        confirmModelBtn: document.getElementById('confirmModelSelection'),
-        showHistoryBtn: document.getElementById('showImageHistoryBtn'),
+        modalCards: document.getElementById('modelCardsContainer'),
+        enhance: document.getElementById('enhanceImagePrompt'),
+        download: document.getElementById('generatedImageDownloadButton'),
+        open: document.getElementById('openImageInNewTabButton'),
+        editWithAi: document.getElementById('editWithAiButton'),
+        share: document.getElementById('shareOnXButton'),
+        historyBtn: document.getElementById('showImageHistoryBtn'),
+        clearBtn: document.getElementById('clearImagePromptBtn'),
         historyModal: document.getElementById('imageHistoryModal'),
-        closeHistoryModalBtn: document.querySelector('#imageHistoryModal .close-modal-btn'),
-        historyGridModal: document.getElementById('imageHistoryGridModal'),
-        clearHistoryModalBtn: document.getElementById('clearImageHistoryModalBtn'),
-        imageViewerModal: document.getElementById('imageViewerModal'),
-        closeImageViewerBtn: document.querySelector('#imageViewerModal .close-modal-btn'),
-        imageViewerImg: document.getElementById('imageViewerImg'),
+        historyGrid: document.getElementById('imageHistoryGridModal'),
+        clearHistory: document.getElementById('clearImageHistoryModalBtn')
     };
-    
-    // Set default model to img3
-    currentSelectedImageModel = 'img3';
-    elements.selectedModelText.textContent = imageModels.find(m => m.id === currentSelectedImageModel)?.name || currentSelectedImageModel;
-    
-    function renderImageHistory() {
-        const history = loadFromHistory(historyKey);
-        const grid = elements.historyGridModal;
-        grid.innerHTML = '';
-        if (history.length > 0) {
-            history.forEach(item => {
-                const historyItem = document.createElement('div');
-                historyItem.className = 'history-item';
-                historyItem.innerHTML = `<img src="${item.imageUrl}" alt="Generated image from history" title="${item.prompt}">`;
-                historyItem.addEventListener('click', () => {
-                    playSound('tab_click');
-                    elements.resultImg.src = item.imageUrl;
-                    elements.prompt.value = item.prompt;
-                    elements.resultContainer.style.display = 'block';
-                    elements.historyModal.style.display = 'none'; // Close modal on selection
-                    // Dynamically add the "Edit with AI" button if not already present
-                    addEditWithAIButton(item.imageUrl);
-                    elements.resultContainer.scrollIntoView({ behavior: 'smooth' });
-                });
-                grid.appendChild(historyItem);
-            });
-        } else {
-             grid.innerHTML = `<p style="color: var(--text-secondary); text-align: center;">Your image generation history is empty.</p>`;
-        }
-    }
 
-    // Helper to add "Edit with AI" button
-    function addEditWithAIButton(imageUrl) {
-        const actionButtonsDiv = document.querySelector('#generatedImageContainer .action-buttons');
-        let editImageBtn = actionButtonsDiv.querySelector('.edit-generated-btn');
-        if (!editImageBtn) {
-            editImageBtn = document.createElement('button');
-            editImageBtn.className = 'action-btn edit-generated-btn';
-            editImageBtn.textContent = 'Edit with AI';
-            actionButtonsDiv.appendChild(editImageBtn);
-        }
-        // Always update the event listener to ensure it uses the latest image URL
-        editImageBtn.onclick = () => {
-            playSound('tab_click');
-            window.location.href = '/image-edit9r.html?image=' + encodeURIComponent(imageUrl);
+    if (!elements.btn) return;
+
+    elements.btn.onclick = async () => {
+        const p = elements.prompt.value.trim();
+        if (!p) return displayStatusMessage('imageGeneratorStatus', 'error', 'Please enter an image prompt.');
+        elements.btn.disabled = true; elements.btn.classList.add('loading');
+        displayStatusMessage('imageGeneratorStatus', 'loading', 'Synthesizing with neural networks...');
+        playSound('tab_click');
+        try {
+            let url;
+            if (['img3', 'img4', 'uncen'].includes(currentSelectedImageModel)) {
+                url = await generateImageFromProxy(currentSelectedImageModel, p);
+            } else {
+                const res = await clients.image.images.generate({ model: currentSelectedImageModel, prompt: p });
+                url = res.data[0].url;
+            }
+            if (!url) throw new Error('Image generation failed to return a result.');
+            elements.res.src = url; elements.container.style.display = 'block';
+            saveToHistory('imageHistory', { prompt: p, imageUrl: url });
+            displayStatusMessage('imageGeneratorStatus', 'success', 'Vision materialized!');
+            elements.container.scrollIntoView({ behavior: 'smooth' });
+        } catch (e) { displayStatusMessage('imageGeneratorStatus', 'error', e.message); }
+        finally { elements.btn.disabled = false; elements.btn.classList.remove('loading'); }
+    };
+
+    elements.selector.onclick = () => {
+        playSound('tab_click');
+        elements.modal.style.display = 'flex';
+        elements.modalCards.innerHTML = imageModels.map(m => `
+            <div class="model-card ${m.id === currentSelectedImageModel ? 'selected' : ''}" data-id="${m.id}">
+                <h4>${m.name}</h4><p>${m.description}</p>
+            </div>
+        `).join('');
+        elements.modalCards.querySelectorAll('.model-card').forEach(c => {
+            c.onclick = () => {
+                playSound('tab_click');
+                currentSelectedImageModel = c.dataset.id;
+                elements.selText.textContent = imageModels.find(im => im.id === currentSelectedImageModel).name;
+                elements.modal.style.display = 'none';
+            };
+        });
+    };
+
+    elements.enhance.onclick = async () => {
+        const p = elements.prompt.value.trim();
+        if (!p) return;
+        playSound('tab_click');
+        displayStatusMessage('imageGeneratorStatus', 'loading', 'Refining prompt with GPT-4o-mini...');
+        try {
+            const res = await clients.enhancer.chat.completions.create({
+                model: "provider-6/gpt-4o-mini",
+                messages: [{ role: "user", content: `Enhance this image prompt with professional descriptors and artistic styles: "${p}". Return ONLY the final prompt.` }]
+            });
+            elements.prompt.value = res.choices[0].message.content;
+            displayStatusMessage('imageGeneratorStatus', 'success', 'Prompt professionally enhanced!');
+        } catch (e) { displayStatusMessage('imageGeneratorStatus', 'error', 'Enhancement service unavailable.'); }
+    };
+
+    elements.download.onclick = () => {
+        if (!elements.res.src) return;
+        playSound('tab_click');
+        const a = document.createElement('a');
+        a.href = elements.res.src;
+        a.download = `neural-canvas-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    elements.open.onclick = () => {
+        if (elements.res.src) window.open(elements.res.src, '_blank');
+    };
+
+    if (elements.editWithAi) {
+        elements.editWithAi.onclick = () => {
+            if (elements.res.src) {
+                window.location.href = `image-editor.html?image=${encodeURIComponent(elements.res.src)}`;
+            }
         };
     }
 
-    elements.generateBtn.addEventListener('click', async () => {
-        playSound('tab_click');
-        const prompt = elements.prompt.value.trim();
-        if (!prompt) {
-            displayStatusMessage('imageGeneratorStatus', 'error', 'Please enter a prompt.');
-            playSound('error_buzz');
-            return;
-        }
-        elements.generateBtn.classList.add('loading');
-        elements.generateBtn.disabled = true;
-        displayStatusMessage('imageGeneratorStatus', 'loading', 'Generating image...');
-        try {
-            const proxyModels = ['uncen', 'img3', 'img4'];
-            let tempImageUrl;
-
-            if (proxyModels.includes(currentSelectedImageModel)) {
-                 const proxyResult = await generateImageFromProxy(currentSelectedImageModel, prompt);
-                 if (currentSelectedImageModel === 'uncen') {
-                     console.log('UNCEN raw response:', proxyResult.raw);
-                     displayStatusMessage('imageGeneratorStatus', 'success', `UNCEN raw response: ${JSON.stringify(proxyResult.raw).slice(0,1200)}`, 10000);
-                     tempImageUrl = (proxyResult.raw && (proxyResult.raw.imageUrl || proxyResult.raw.url)) || '';
-                     if (!tempImageUrl) {
-                         elements.generateBtn.classList.remove('loading');
-                         elements.generateBtn.disabled = false;
-                         playSound('error_buzz');
-                         throw new Error('UNCEN response did not include an imageUrl. See console for raw response.');
-                     }
-                 } else {
-                     tempImageUrl = (typeof proxyResult === 'string') ? proxyResult : (proxyResult.imageUrl || proxyResult.url || '');
-                     if (!tempImageUrl) throw new Error('Proxy did not return a valid image URL.');
-                 }
-            } else {
-                 tempImageUrl = (await clients.image.images.generate({
-                    model: currentSelectedImageModel,
-                    prompt: `${prompt}, in ${elements.style.value} style`,
-                    // size is not supported by all models, so we'll only send it for non-proxy models for now
-                    // size: elements.size.value, 
-                })).data[0].url;
-            }
-            
-            let permanentImageUrl = '';
-            displayStatusMessage('imageGeneratorStatus', 'loading', 'Processing image...');
-            try {
-                const imageResponse = await fetch(tempImageUrl);
-                if (!imageResponse.ok) throw new Error(`Image fetch failed with status ${imageResponse.status}`);
-                const imageBlob = await imageResponse.blob();
-                permanentImageUrl = await blobToBase64(imageBlob);
-            } catch (fetchErr) {
-                console.warn('Failed to fetch/convert image blob, falling back to original URL (may be temporary):', fetchErr);
-                permanentImageUrl = tempImageUrl;
-                displayStatusMessage('imageGeneratorStatus', 'success', 'Image generated, displayed via direct URL (fallback).');
-            }
-
-            elements.resultImg.src = permanentImageUrl;
-            elements.resultContainer.style.display = 'block';
-            displayStatusMessage('imageGeneratorStatus', 'success', 'Image generated successfully!');
-            
-            const historyItem = { prompt: prompt, imageUrl: permanentImageUrl, timestamp: new Date().toISOString() };
-            saveToHistory(historyKey, historyItem);
-            
-            addEditWithAIButton(permanentImageUrl);
-            
-        } catch (error) {
-            displayStatusMessage('imageGeneratorStatus', 'error', `Error: ${error.message}`);
-            playSound('error_buzz');
-        } finally {
-            elements.generateBtn.classList.remove('loading');
-            elements.generateBtn.disabled = false;
-        }
-    });
-
-    elements.downloadBtn.addEventListener('click', () => {
-        const link = document.createElement('a');
-        link.href = elements.resultImg.src;
-        link.download = `neural-canvas-${Date.now()}.png`;
-        link.click();
-    });
-
-    elements.openNewTabBtn.addEventListener('click', () => {
-        if (elements.resultImg.src) {
-            playSound('tab_click');
-            elements.imageViewerImg.src = elements.resultImg.src;
-            elements.imageViewerModal.style.display = 'flex';
-        }
-    });
-
-    elements.shareXBtn.addEventListener('click', () => {
-        const text = encodeURIComponent("Check out this amazing image I generated with Neural Canvas! 🎨✨");
+    elements.share.onclick = () => {
+        if (!elements.res.src) return;
+        const text = encodeURIComponent("Check out this AI-generated vision by @NeuralCanvasAI!");
         const url = encodeURIComponent(window.location.href);
         window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
-    });
-
-    elements.shareFBBtn.addEventListener('click', () => {
-        const url = encodeURIComponent(window.location.href);
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
-    });
-
-    // Model selection modal logic
-    let tempSelectedModelId = currentSelectedImageModel;
-    elements.modelSelector.addEventListener('click', () => { playSound('tab_click'); elements.modal.style.display = 'flex'; populateModelModal(); });
-    elements.closeModalBtn.addEventListener('click', () => { playSound('tab_click'); elements.modal.style.display = 'none'; });
-    elements.confirmModelBtn.addEventListener('click', () => {
-        playSound('tab_click');
-        currentSelectedImageModel = tempSelectedModelId;
-        elements.selectedModelText.textContent = imageModels.find(m => m.id === currentSelectedImageModel)?.name || currentSelectedImageModel;
-        elements.modal.style.display = 'none';
-    });
-
-    function populateModelModal() {
-        elements.modelCardsContainer.innerHTML = '';
-        imageModels.forEach(model => {
-            const card = document.createElement('div');
-            card.className = 'model-card';
-            card.dataset.modelId = model.id;
-            if (model.id === tempSelectedModelId) card.classList.add('selected');
-            if (model.isUncen) card.classList.add('model-card-highlight');
-            card.innerHTML = `<h4>${model.name}</h4><p>${model.description}</p>`;
-            card.addEventListener('click', () => {
-                // Removed disabled-model-card class as per previous iteration; re-add if needed
-                document.querySelectorAll('.model-card').forEach(c => c.classList.remove('selected'));
-                card.classList.add('selected');
-                tempSelectedModelId = model.id;
-            });
-            elements.modelCardsContainer.appendChild(card);
-        });
-    }
-
-    // History Modal Logic
-    elements.showHistoryBtn.addEventListener('click', () => {
-        playSound('tab_click');
-        renderImageHistory(); // Re-render every time it's opened
-        elements.historyModal.style.display = 'flex';
-    });
-
-    elements.closeHistoryModalBtn.addEventListener('click', () => {
-        playSound('tab_click');
-        elements.historyModal.style.display = 'none';
-    });
-
-    elements.clearHistoryModalBtn.addEventListener('click', () => {
-        playSound('tab_click');
-        clearHistory(historyKey);
-        renderImageHistory(); // Re-render to show it's empty
-        displayStatusMessage('globalAppStatus', 'success', 'History cleared!', 2000);
-    });
-
-    // Image viewer modal logic
-    elements.closeImageViewerBtn.addEventListener('click', () => {
-        playSound('tab_click');
-        elements.imageViewerModal.style.display = 'none';
-        elements.imageViewerImg.src = ''; // Clear image src
-    });
-
-    elements.enhanceBtn.addEventListener('click', createEnhancer('imageGeneratorPromptInput', 'imageGeneratorStatus'));
-    elements.clearBtn.addEventListener('click', () => { playSound('tab_click'); elements.prompt.value = ''; elements.prompt.focus(); });
-    
-    // Initial render of history on page load is no longer needed as it's in a modal
-}
-
-function initWebsiteBuilder() {
-    const historyKey = 'websiteHistory';
-    const elements = {
-        prompt: document.getElementById('builderPromptInput'),
-        buildBtn: document.getElementById('buildWebsiteButton'),
-        previewContainer: document.getElementById('websitePreviewContainer'),
-        previewFrame: document.getElementById('websitePreview'),
-        downloadBtn: document.getElementById('downloadCodeButton'),
-        editBtn: document.getElementById('editCodeButton'),
-        changeBtn: document.getElementById('changeWithAiButton'),
-        reEditBtn: document.getElementById('reEditWebsiteButton'),
-        openNewTabBtn: document.getElementById('openInNewTabButton'),
-        enhanceBtn: document.getElementById('enhanceBuilderPrompt'),
-        clearBtn: document.getElementById('clearBuilderPromptBtn'),
-        styleSelect: document.getElementById('builderStyle'),
-        langSelect: document.getElementById('builderLanguage'),
-        modelSelect: document.getElementById('builderModel'),
-        // Preview controls
-        previewDesktopBtn: document.getElementById('previewDesktop'),
-        previewTabletBtn: document.getElementById('previewTablet'),
-        previewMobileBtn: document.getElementById('previewMobile'),
-        // Code editor modal
-        codeEditorModal: document.getElementById('codeEditorModal'),
-        codeEditorTextarea: document.getElementById('codeEditorTextarea'),
-        updatePreviewButton: document.getElementById('updatePreviewButton'),
-        closeCodeEditorBtn: document.getElementById('closeCodeEditorBtn'),
-        // AI Change modal
-        changePromptModal: document.getElementById('changePromptModal'),
-        closeChangePromptBtn: document.getElementById('closeChangePromptBtn'),
-        changePromptTextarea: document.getElementById('changePromptTextarea'),
-        submitChangeButton: document.getElementById('submitChangeButton'),
-        // New projects modal elements
-        showProjectsBtn: document.getElementById('showWebsiteProjectsBtn'),
-        projectsModal: document.getElementById('websiteProjectsModal'),
-        closeProjectsModalBtn: document.querySelector('#websiteProjectsModal .close-modal-btn'),
-        projectsListModal: document.getElementById('websiteProjectsListModal'),
-        clearProjectsModalBtn: document.getElementById('clearWebsiteProjectsModalBtn'),
     };
 
-    function renderWebsiteHistory() {
-        const history = loadFromHistory(historyKey);
-        const list = elements.projectsListModal;
-        list.innerHTML = '';
-        if (history.length > 0) {
-            history.forEach((item, index) => {
-                const historyItem = document.createElement('div');
-                historyItem.className = 'history-item-website';
-                historyItem.innerHTML = `
-                    <p class="history-prompt">"${item.prompt.substring(0, 100)}${item.prompt.length > 100 ? '...' : ''}"</p>
-                    <div class="history-actions">
-                        <button class="history-btn load-btn" data-index="${index}">Load</button>
-                        <button class="history-btn open-btn" data-index="${index}">Open</button>
-                    </div>
-                `;
-                list.appendChild(historyItem);
-            });
+    elements.clearBtn.onclick = () => {
+        elements.prompt.value = '';
+        elements.container.style.display = 'none';
+        displayStatusMessage('imageGeneratorStatus', 'success', 'Canvas cleared.');
+    };
 
-            list.querySelectorAll('.load-btn').forEach(btn => btn.addEventListener('click', (e) => {
-                playSound('tab_click');
-                const item = history[e.target.dataset.index];
-                currentWebsiteCode = item.code;
-                currentWebsitePrompt = item.prompt;
-                const blob = new Blob([currentWebsiteCode], { type: 'text/html' });
-                elements.previewFrame.src = URL.createObjectURL(blob);
-                elements.prompt.value = currentWebsitePrompt;
-                elements.previewContainer.style.display = 'block';
-                elements.reEditBtn.style.display = 'inline-flex';
-                elements.projectsModal.style.display = 'none'; // Close modal on selection
-                elements.previewContainer.scrollIntoView({ behavior: 'smooth' });
-            }));
-            list.querySelectorAll('.open-btn').forEach(btn => btn.addEventListener('click', (e) => {
-                 playSound('tab_click');
-                const item = history[e.target.dataset.index];
-                const blob = new Blob([item.code], {type: 'text/html'});
-                const url = URL.createObjectURL(blob);
-                window.open(url, '_blank');
-            }));
-        } else {
-             list.innerHTML = `<p style="color: var(--text-secondary); text-align: center;">You have no saved projects.</p>`;
+    elements.historyBtn.onclick = () => {
+        playSound('tab_click');
+        const history = loadFromHistory('imageHistory');
+        elements.historyGrid.innerHTML = history.length ? history.map(item => `
+            <div class="history-card" onclick="window.open('${item.imageUrl}', '_blank')">
+                <img src="${item.imageUrl}" alt="AI History">
+                <div class="history-info"><p>${item.prompt}</p></div>
+            </div>
+        `).join('') : '<p class="empty-msg">No generation history yet.</p>';
+        elements.historyModal.style.display = 'flex';
+    };
+
+    elements.clearHistory.onclick = () => {
+        if (confirm('Permanently delete all generation history?')) {
+            localStorage.removeItem('imageHistory');
+            elements.historyGrid.innerHTML = '<p class="empty-msg">History cleared.</p>';
         }
-    }
-
-    elements.buildBtn.addEventListener('click', async () => {
-        playSound('tab_click');
-        const prompt = elements.prompt.value.trim();
-        if (!prompt) {
-            displayStatusMessage('builderStatus', 'error', 'Please enter a prompt.');
-            playSound('error_buzz');
-            return;
-        }
-        elements.buildBtn.classList.add('loading');
-        elements.buildBtn.disabled = true;
-        displayStatusMessage('builderStatus', 'loading', 'Building website...');
-        try {
-            const systemPrompt = `You are an expert web developer. Create a complete, self-contained HTML website based on the user's request. The response should be ONLY the HTML code, with no explanations or markdown. Include CSS in <style> tags and JavaScript in <script> tags. Style: ${elements.styleSelect.value}. Language: ${elements.langSelect.value}.`;
-            const response = await clients.builder.chat.completions.create({
-                model: elements.modelSelect.value,
-                messages: [{ "role": "system", "content": systemPrompt }, { "role": "user", "content": `create a ${prompt} only code in html only` }],
-            });
-            const htmlCode = response.choices[0].message.content;
-            currentWebsiteCode = htmlCode;
-            currentWebsitePrompt = prompt;
-            const blob = new Blob([htmlCode], { type: 'text/html' });
-            elements.previewFrame.src = URL.createObjectURL(blob);
-            elements.previewContainer.style.display = 'block';
-            elements.reEditBtn.style.display = 'inline-flex';
-            displayStatusMessage('builderStatus', 'success', 'Website built successfully!');
-
-            // Save to history
-            const historyItem = { prompt: currentWebsitePrompt, code: currentWebsiteCode, timestamp: new Date().toISOString() };
-            saveToHistory(historyKey, historyItem);
-            // No need to render history here
-
-        } catch (error) {
-            displayStatusMessage('builderStatus', 'error', `Error: ${error.message}`);
-            playSound('error_buzz');
-        } finally {
-            elements.buildBtn.classList.remove('loading');
-            elements.buildBtn.disabled = false;
-        }
-    });
-
-    // Event listeners for other buttons (download, edit, etc.) would go here...
-    elements.downloadBtn.addEventListener('click', () => {
-        if(currentWebsiteCode) {
-            playSound('tab_click');
-            const blob = new Blob([currentWebsiteCode], {type: 'text/html'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'website.html';
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-    });
-    
-    elements.openNewTabBtn.addEventListener('click', () => {
-        if(currentWebsiteCode) {
-            playSound('tab_click');
-            const blob = new Blob([currentWebsiteCode], {type: 'text/html'});
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
-        }
-    });
-
-    elements.reEditBtn.addEventListener('click', () => {
-        playSound('tab_click');
-        elements.prompt.value = currentWebsitePrompt;
-        elements.prompt.focus();
-        // Scroll to the top of the tool wrapper
-        document.getElementById('builderSection').scrollIntoView({ behavior: 'smooth' });
-    });
-
-    elements.editBtn.addEventListener('click', () => {
-        if (currentWebsiteCode) {
-            playSound('tab_click');
-            elements.codeEditorTextarea.value = currentWebsiteCode;
-            elements.codeEditorModal.style.display = 'flex';
-        }
-    });
-    
-    elements.closeCodeEditorBtn.addEventListener('click', () => {
-        playSound('tab_click');
-        elements.codeEditorModal.style.display = 'none';
-    });
-    
-    elements.updatePreviewButton.addEventListener('click', () => {
-        playSound('tab_click');
-        currentWebsiteCode = elements.codeEditorTextarea.value;
-        const blob = new Blob([currentWebsiteCode], { type: 'text/html' });
-        elements.previewFrame.src = URL.createObjectURL(blob);
-        elements.codeEditorModal.style.display = 'none';
-        displayStatusMessage('builderStatus', 'success', 'Preview updated!');
-    });
-
-    // AI Change Modal Logic
-    elements.changeBtn.addEventListener('click', () => {
-        if (currentWebsiteCode) {
-            playSound('tab_click');
-            elements.changePromptTextarea.value = ''; // Clear previous prompt
-            elements.changePromptModal.style.display = 'flex';
-        } else {
-            playSound('error_buzz');
-            displayStatusMessage('builderStatus', 'error', 'Please generate a website first before trying to change it.');
-        }
-    });
-
-    elements.closeChangePromptBtn.addEventListener('click', () => {
-        playSound('tab_click');
-        elements.changePromptModal.style.display = 'none';
-    });
-
-    elements.submitChangeButton.addEventListener('click', async () => {
-        playSound('tab_click');
-        const changePrompt = elements.changePromptTextarea.value.trim();
-        if (!changePrompt) {
-            displayStatusMessage('globalAppStatus', 'error', 'Please describe the changes you want to make.');
-            playSound('error_buzz');
-            return;
-        }
-
-        elements.submitChangeButton.classList.add('loading');
-        elements.submitChangeButton.disabled = true;
-        displayStatusMessage('builderStatus', 'loading', 'Applying changes with AI...');
-        
-        try {
-            const systemPrompt = `You are an expert web developer. The user wants to modify the following HTML code.
-Here is the current code:
-\`\`\`html
-${currentWebsiteCode}
-\`\`\`
-Here is the requested change: "${changePrompt}".
-Please provide the complete, updated HTML code. The response should be ONLY the HTML code, with no explanations or markdown. Ensure all styles are in <style> tags and scripts are in <script> tags within the single HTML file.`;
-
-            const response = await clients.builder.chat.completions.create({
-                model: elements.modelSelect.value, // Use the currently selected model
-                messages: [{ "role": "system", "content": systemPrompt }, { "role": "user", "content": changePrompt }],
-            });
-
-            const newHtmlCode = response.choices[0].message.content;
-            currentWebsiteCode = newHtmlCode;
-            const blob = new Blob([newHtmlCode], { type: 'text/html' });
-            elements.previewFrame.src = URL.createObjectURL(blob);
-            
-            elements.changePromptModal.style.display = 'none';
-            displayStatusMessage('builderStatus', 'success', 'Website updated successfully!');
-
-            // Update history with the changed version
-            const historyItem = { prompt: `Changed: ${changePrompt}`, code: currentWebsiteCode, timestamp: new Date().toISOString() };
-            saveToHistory(historyKey, historyItem);
-            // No need to render history here
-
-        } catch (error) {
-            displayStatusMessage('builderStatus', 'error', `Error applying changes: ${error.message}`);
-            playSound('error_buzz');
-        } finally {
-            elements.submitChangeButton.classList.remove('loading');
-            elements.submitChangeButton.disabled = false;
-        }
-    });
-
-    function setPreviewDevice(device) {
-        playSound('tab_click');
-        elements.previewFrame.className = device;
-        [elements.previewDesktopBtn, elements.previewTabletBtn, elements.previewMobileBtn].forEach(btn => btn.classList.remove('active'));
-        if (device === 'mobile') elements.previewMobileBtn.classList.add('active');
-        else if (device === 'tablet') elements.previewTabletBtn.classList.add('active');
-        else elements.previewDesktopBtn.classList.add('active');
-    }
-    elements.previewDesktopBtn.addEventListener('click', () => setPreviewDevice(''));
-    elements.previewMobileBtn.addEventListener('click', () => setPreviewDevice('mobile'));
-    elements.previewTabletBtn.addEventListener('click', () => setPreviewDevice('tablet'));
-
-    // Projects Modal Logic
-    elements.showProjectsBtn.addEventListener('click', () => {
-        playSound('tab_click');
-        renderWebsiteHistory(); // Re-render every time it's opened
-        elements.projectsModal.style.display = 'flex';
-    });
-
-    elements.closeProjectsModalBtn.addEventListener('click', () => {
-        playSound('tab_click');
-        elements.projectsModal.style.display = 'none';
-    });
-
-    elements.clearProjectsModalBtn.addEventListener('click', () => {
-        playSound('tab_click');
-        clearHistory(historyKey);
-        renderWebsiteHistory(); // Re-render to show it's empty
-        displayStatusMessage('globalAppStatus', 'success', 'Projects cleared!', 2000);
-    });
-
-    elements.enhanceBtn.addEventListener('click', createEnhancer('builderPromptInput', 'builderStatus'));
-    elements.clearBtn.addEventListener('click', () => { playSound('tab_click'); elements.prompt.value = ''; elements.prompt.focus(); });
-    
-    // Initial render of history on page load is no longer needed
+    };
 }
 
-function initApiDocs() {
-    document.querySelectorAll('.copy-code-btn').forEach(button => {
-        button.addEventListener('click', () => {
-            playSound('tab_click');
-            const targetId = button.dataset.target;
-            const code = document.getElementById(targetId).textContent;
-            navigator.clipboard.writeText(code).then(() => {
-                displayStatusMessage('globalAppStatus', 'success', 'Code copied!', 2000);
-            }, () => {
-                displayStatusMessage('globalAppStatus', 'error', 'Failed to copy.', 2000);
+// --- WEBSITE BUILDER ---
+function initWebsiteBuilder() {
+    const elements = {
+        prompt: document.getElementById('builderPromptInput'),
+        btn: document.getElementById('buildWebsiteButton'),
+        frame: document.getElementById('websitePreview'),
+        container: document.getElementById('websitePreviewContainer'),
+        model: document.getElementById('builderModel'),
+        enhance: document.getElementById('enhanceBuilderPrompt'),
+        download: document.getElementById('downloadCodeButton'),
+        open: document.getElementById('openInNewTabButton'),
+        edit: document.getElementById('editCodeButton'),
+        remix: document.getElementById('changeWithAiButton'),
+        clearBtn: document.getElementById('clearBuilderPromptBtn'),
+        historyBtn: document.getElementById('showWebsiteProjectsBtn'),
+        projectsModal: document.getElementById('websiteProjectsModal'),
+        projectsList: document.getElementById('websiteProjectsListModal'),
+        clearProjects: document.getElementById('clearWebsiteProjectsModalBtn'),
+        editorModal: document.getElementById('codeEditorModal'),
+        editorText: document.getElementById('codeEditorTextarea'),
+        updateBtn: document.getElementById('updatePreviewButton'),
+        closeEditor: document.getElementById('closeCodeEditorBtn'),
+        desktop: document.getElementById('previewDesktop'),
+        tablet: document.getElementById('previewTablet'),
+        mobile: document.getElementById('previewMobile')
+    };
+
+    if (!elements.btn) return;
+
+    let currentCode = '';
+
+    const updateFrame = (code) => {
+        const blob = new Blob([code], { type: 'text/html' });
+        elements.frame.src = URL.createObjectURL(blob);
+    };
+
+    elements.btn.onclick = async () => {
+        const p = elements.prompt.value.trim();
+        if (!p) return displayStatusMessage('builderStatus', 'error', 'Describe the website you want to build.');
+        elements.btn.disabled = true; elements.btn.classList.add('loading');
+        displayStatusMessage('builderStatus', 'loading', 'Generating source code and assets...');
+        playSound('tab_click');
+        try {
+            const res = await clients.builder.chat.completions.create({
+                model: elements.model.value,
+                messages: [
+                    { role: "system", content: "You are an elite frontend developer. Return ONLY pure HTML, CSS, and JS. Do not use Markdown markers like ```html. Ensure the design is modern, responsive, and professional." },
+                    { role: "user", content: p }
+                ]
             });
+            currentCode = res.choices[0].message.content;
+            updateFrame(currentCode);
+            elements.container.style.display = 'block';
+            saveToHistory('websiteHistory', { prompt: p, code: currentCode });
+            displayStatusMessage('builderStatus', 'success', 'Deployment successful!');
+            elements.container.scrollIntoView({ behavior: 'smooth' });
+        } catch (e) { displayStatusMessage('builderStatus', 'error', 'Code generation failed.'); }
+        finally { elements.btn.disabled = false; elements.btn.classList.remove('loading'); }
+    };
+
+    if (elements.enhance) {
+        elements.enhance.onclick = async () => {
+            const p = elements.prompt.value.trim();
+            if (!p) return;
+            playSound('tab_click');
+            displayStatusMessage('builderStatus', 'loading', 'Expanding project scope...');
+            try {
+                const res = await clients.enhancer.chat.completions.create({
+                    model: "provider-6/gpt-4o-mini",
+                    messages: [{ role: "user", content: `Convert this simple description into a comprehensive technical requirement for a high-end web application: "${p}". Return ONLY the text.` }]
+                });
+                elements.prompt.value = res.choices[0].message.content;
+                displayStatusMessage('builderStatus', 'success', 'Requirement refined!');
+            } catch (e) { displayStatusMessage('builderStatus', 'error', 'Failed to refine.'); }
+        };
+    }
+
+    elements.download.onclick = () => {
+        if (!currentCode) return;
+        const b = new Blob([currentCode], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(b);
+        a.download = 'neural-canvas-website.html';
+        a.click();
+    };
+
+    elements.open.onclick = () => {
+        if (!currentCode) return;
+        const w = window.open();
+        w.document.open();
+        w.document.write(currentCode);
+        w.document.close();
+    };
+
+    elements.edit.onclick = () => {
+        elements.editorText.value = currentCode;
+        elements.editorModal.style.display = 'flex';
+    };
+
+    elements.updateBtn.onclick = () => {
+        currentCode = elements.editorText.value;
+        updateFrame(currentCode);
+        elements.editorModal.style.display = 'none';
+        displayStatusMessage('builderStatus', 'success', 'Preview updated.');
+    };
+
+    elements.remix.onclick = async () => {
+        const instr = prompt('Describe the changes you want (e.g., "Change theme to neon blue", "Add a gallery section"):');
+        if (!instr) return;
+        playSound('tab_click');
+        displayStatusMessage('builderStatus', 'loading', 'Applying AI Remix...');
+        try {
+            const res = await clients.builder.chat.completions.create({
+                model: elements.model.value,
+                messages: [
+                    { role: "system", content: "You are a UI/UX expert. Modify the existing code based on user instructions. Return ONLY the new pure HTML/CSS/JS code." },
+                    { role: "user", content: `Original Code: ${currentCode}\n\nInstructions: ${instr}` }
+                ]
+            });
+            currentCode = res.choices[0].message.content;
+            updateFrame(currentCode);
+            displayStatusMessage('builderStatus', 'success', 'Remix applied successfully!');
+        } catch (e) { displayStatusMessage('builderStatus', 'error', 'Remix failed.'); }
+    };
+
+    if (elements.clearBtn) {
+        elements.clearBtn.onclick = () => {
+            elements.prompt.value = '';
+            elements.container.style.display = 'none';
+            displayStatusMessage('builderStatus', 'success', 'Cleared.');
+        };
+    }
+
+    elements.historyBtn.onclick = () => {
+        const history = loadFromHistory('websiteHistory');
+        window.websiteHistoryItems = history;
+        elements.projectsList.innerHTML = history.length ? history.map((item, index) => `
+            <div class="history-item-list" data-index="${index}">
+                <strong>${item.prompt.substring(0, 40)}...</strong>
+                <span>${new Date(item.id).toLocaleDateString()}</span>
+            </div>
+        `).join('') : '<p class="empty-msg">No saved projects.</p>';
+
+        elements.projectsList.querySelectorAll('.history-item-list').forEach(item => {
+            item.onclick = () => {
+                const index = item.dataset.index;
+                const project = window.websiteHistoryItems[index];
+                currentCode = project.code;
+                updateFrame(currentCode);
+                elements.container.style.display = 'block';
+                elements.projectsModal.style.display = 'none';
+                displayStatusMessage('builderStatus', 'success', 'Project loaded from history.');
+            };
         });
-    });
+
+        elements.projectsModal.style.display = 'flex';
+    };
+
+    // Responsive controls
+    const setView = (w) => {
+        elements.frame.style.width = w;
+        [elements.desktop, elements.tablet, elements.mobile].forEach(b => b.classList.remove('active'));
+    };
+    elements.desktop.onclick = () => { setView('100%'); elements.desktop.classList.add('active'); };
+    elements.tablet.onclick = () => { setView('768px'); elements.tablet.classList.add('active'); };
+    elements.mobile.onclick = () => { setView('375px'); elements.mobile.classList.add('active'); };
 }
 
+// --- CHATBOT ---
+function initChatbot() {
+    const elements = {
+        input: document.getElementById('botInput'),
+        btn: document.getElementById('sendBotButton'),
+        msgs: document.getElementById('chatMessages'),
+        upload: document.getElementById('chatImageUpload'),
+        imgPreview: document.getElementById('chatImagePreview'),
+        imgPreviewContainer: document.getElementById('chatImagePreviewContainer'),
+        removeImg: document.getElementById('removeChatImageBtn')
+    };
+    if (!elements.btn) return;
+
+    let selectedImg = null;
+
+    elements.upload.onchange = (e) => {
+        const f = e.target.files[0];
+        if (f) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                selectedImg = ev.target.result;
+                elements.imgPreview.src = selectedImg;
+                elements.imgPreviewContainer.style.display = 'block';
+            };
+            reader.readAsDataURL(f);
+        }
+    };
+
+    elements.removeImg.onclick = () => {
+        selectedImg = null;
+        elements.imgPreviewContainer.style.display = 'none';
+        elements.upload.value = '';
+    };
+
+    const sendMessage = async () => {
+        const t = elements.input.value.trim();
+        if (!t && !selectedImg) return;
+        playSound('tab_click');
+
+        const userMsg = document.createElement('div');
+        userMsg.className = 'message user-message';
+        userMsg.innerHTML = `<div class="message-content"><div class="message-text">${t}${selectedImg ? '<br><img src="'+selectedImg+'" class="chat-attached-img">' : ''}</div></div>`;
+        elements.msgs.appendChild(userMsg);
+        elements.input.value = '';
+        elements.msgs.scrollTop = elements.msgs.scrollHeight;
+
+        // Clear image preview
+        selectedImg = null;
+        elements.imgPreviewContainer.style.display = 'none';
+
+        elements.btn.disabled = true; elements.btn.classList.add('loading');
+        try {
+            const content = [];
+            if (t) content.push({ type: "text", text: t });
+            if (selectedImg) content.push({ type: "image_url", image_url: { url: selectedImg } });
+
+            const res = await clients.enhancer.chat.completions.create({
+                model: "provider-6/gpt-4o-mini",
+                messages: [{ role: "user", content: content.length ? content : t }]
+            });
+
+            const reply = document.createElement('div');
+            reply.className = 'message bot-message';
+            reply.innerHTML = `<div class="message-content"><div class="message-avatar">🤖</div><div class="message-text">${res.choices[0].message.content}</div></div>`;
+            elements.msgs.appendChild(reply);
+            elements.msgs.scrollTop = elements.msgs.scrollHeight;
+        } catch (e) {
+            displayStatusMessage('botStatus', 'error', 'Communication interrupted.');
+        } finally {
+            elements.btn.disabled = false; elements.btn.classList.remove('loading');
+        }
+    };
+
+    elements.btn.onclick = sendMessage;
+    elements.input.onkeypress = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+}
+
+// --- IMAGE EDITOR ---
 function initImageEditor() {
     const elements = {
         upload: document.getElementById('imageUpload'),
-        dropZone: document.getElementById('imageDropZone'),
+        drop: document.getElementById('imageDropZone'),
         preview: document.getElementById('imagePreview'),
-        previewContainer: document.getElementById('imagePreviewContainer'),
-        removeBtn: document.getElementById('removeImageBtn'),
+        pContainer: document.getElementById('imagePreviewContainer'),
+        remove: document.getElementById('removeImageBtn'),
+        controls: document.getElementById('editorControls'),
         prompt: document.getElementById('editorPromptInput'),
-        editBtn: document.getElementById('editImageButton'),
-        result: document.getElementById('editedImage'),
-        resultContainer: document.getElementById('editedImageContainer'),
-        downloadBtn: document.getElementById('downloadEditedImageButton'),
-        editAgainBtn: document.getElementById('editAgainButton'),
-        enhanceBtn: document.getElementById('enhanceImageEditPrompt'),
-        clearBtn: document.getElementById('clearImageEditPromptBtn'),
-        editorControls: document.getElementById('editorControls'), // Get editor controls div
+        btn: document.getElementById('editImageButton'),
+        res: document.getElementById('editedImage'),
+        resContainer: document.getElementById('editedImageContainer'),
+        presets: document.querySelectorAll('.preset-filters button'),
+        download: document.getElementById('downloadEditedImageButton'),
+        editAgain: document.getElementById('editAgainButton'),
+        enhance: document.getElementById('enhanceImageEditPrompt'),
+        clear: document.getElementById('clearImageEditPromptBtn')
     };
 
-    let currentImageBase64 = null;
+    if (!elements.upload) return;
 
-    // Check for generated image from image generator
+    let selectedImg = null;
+
+    // Handle incoming image from URL (e.g. from Image Generator)
     const urlParams = new URLSearchParams(window.location.search);
-    const generatedImageUrl = urlParams.get('image');
-    if (generatedImageUrl) {
-        currentImageBase64 = decodeURIComponent(generatedImageUrl); // Decode the URL component
-        elements.preview.src = currentImageBase64;
-        elements.previewContainer.style.display = 'block';
-        elements.dropZone.style.display = 'none';
-        elements.editorControls.style.display = 'block'; // Show controls
-        displayStatusMessage('imageEditorStatus', 'success', 'Image loaded from generator!');
+    const incomingImage = urlParams.get('image');
+    if (incomingImage) {
+        selectedImg = incomingImage;
+        elements.preview.src = selectedImg;
+        elements.pContainer.style.display = 'block';
+        elements.controls.style.display = 'block';
+        elements.drop.style.display = 'none';
     }
 
-    // File upload handlers
-    elements.dropZone?.addEventListener('click', () => {
+    const handleFile = (f) => {
+        if (f) {
+            if (f.size > 5 * 1024 * 1024) return displayStatusMessage('imageEditorStatus', 'error', 'Limit exceeded (5MB max).');
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                selectedImg = e.target.result;
+                elements.preview.src = selectedImg;
+                elements.pContainer.style.display = 'block';
+                elements.controls.style.display = 'block';
+                elements.drop.style.display = 'none';
+            };
+            reader.readAsDataURL(f);
+        }
+    };
+
+    elements.upload.onchange = (e) => handleFile(e.target.files[0]);
+    elements.drop.onclick = () => elements.upload.click();
+    elements.remove.onclick = () => {
+        selectedImg = null;
+        elements.pContainer.style.display = 'none';
+        elements.controls.style.display = 'none';
+        elements.drop.style.display = 'block';
+        elements.resContainer.style.display = 'none';
+    };
+
+    elements.presets.forEach(p => {
+        p.onclick = () => { elements.prompt.value = p.dataset.instruction; elements.prompt.focus(); };
+    });
+
+    elements.btn.onclick = async () => {
+        const t = elements.prompt.value.trim();
+        if (!t || !selectedImg) return;
         playSound('tab_click');
-        elements.upload?.click();
-    });
-    
-    elements.upload?.addEventListener('change', handleImageSelect);
-    
-    // Drag and drop
-    ['dragenter', 'dragover'].forEach(eventName => {
-        elements.dropZone?.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            elements.dropZone?.classList.add('dragover');
-        });
-    });
-    
-    ['dragleave', 'drop'].forEach(eventName => {
-        elements.dropZone?.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            elements.dropZone?.classList.remove('dragover');
-        });
-    });
-    
-    elements.dropZone?.addEventListener('drop', (e) => {
-        playSound('tab_click');
-        e.preventDefault();
-        e.stopPropagation();
-        elements.dropZone?.classList.remove('dragover');
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            processImageFile(files[0]);
-        }
-    });
-
-    function handleImageSelect(e) {
-        playSound('tab_click');
-        const file = e.target.files[0];
-        if (file) {
-            processImageFile(file);
-        }
-    }
-
-    function processImageFile(file) {
-        if (!file.type.startsWith('image/')) {
-            displayStatusMessage('imageEditorStatus', 'error', 'Please select a valid image file.');
-            playSound('error_buzz');
-            return;
-        }
-
-        if (file.size > 10 * 1024 * 1024) { // Max 10MB
-            displayStatusMessage('imageEditorStatus', 'error', 'Image file is too large. Please select an image under 10MB.');
-            playSound('error_buzz');
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            currentImageBase64 = e.target.result;
-            elements.preview.src = currentImageBase64;
-            elements.previewContainer.style.display = 'block';
-            elements.dropZone.style.display = 'none';
-            elements.editorControls.style.display = 'block';
-            displayStatusMessage('imageEditorStatus', 'success', 'Image uploaded successfully!');
-        };
-        reader.onerror = () => {
-            displayStatusMessage('imageEditorStatus', 'error', 'Failed to read image file.');
-            playSound('error_buzz');
-        };
-        reader.readAsDataURL(file);
-    }
-
-    elements.removeBtn?.addEventListener('click', () => {
-        playSound('tab_click');
-        currentImageBase64 = null;
-        elements.previewContainer.style.display = 'none';
-        elements.dropZone.style.display = 'block';
-        elements.upload.value = ''; // Clear file input
-        elements.resultContainer.style.display = 'none'; // Hide result if any
-        elements.editorControls.style.display = 'none'; // Hide controls
-        elements.prompt.value = ''; // Clear prompt input
-        clearStatusMessage('imageEditorStatus'); // Clear status
-    });
-
-    // Preset filters
-    document.querySelectorAll('[data-instruction]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            playSound('tab_click');
-            elements.prompt.value = btn.dataset.instruction;
-            elements.prompt.focus();
-        });
-    });
-
-    elements.editBtn?.addEventListener('click', async () => {
-        playSound('tab_click');
-        if (!currentImageBase64) {
-            displayStatusMessage('imageEditorStatus', 'error', 'Please upload an image first.');
-            playSound('error_buzz');
-            return;
-        }
-
-        const instructions = elements.prompt.value.trim();
-        if (!instructions) {
-            displayStatusMessage('imageEditorStatus', 'error', 'Please enter edit instructions.');
-            playSound('error_buzz');
-            return;
-        }
-
-        elements.editBtn.classList.add('loading');
-        elements.editBtn.disabled = true;
-        displayStatusMessage('imageEditorStatus', 'loading', 'Applying AI edits...');
-
+        elements.btn.disabled = true; elements.btn.classList.add('loading');
+        displayStatusMessage('imageEditorStatus', 'loading', 'Analyzing and transforming source data...');
         try {
-            // This is the specific manipulation endpoint
-            const response = await fetch('https://ai-image-editor-eta.vercel.app/api/manipulate', {
+            const response = await fetch(CONFIG.MANIPULATE_API, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    photoDataUri: currentImageBase64,
-                    instructions: instructions
-                }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ photoDataUri: selectedImg, instructions: t }),
             });
-
             const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'The neural processor failed to edit the image.');
             
-            if (!response.ok) {
-                throw new Error(data.error || 'Image editing failed');
-            }
-            if (!data.editedPhotoDataUri) {
-                throw new Error('No edited image data received from API.');
-            }
+            elements.res.src = data.editedPhotoDataUri;
+            elements.resContainer.style.display = 'block';
+            displayStatusMessage('imageEditorStatus', 'success', 'Image successfully transformed!');
+            elements.resContainer.scrollIntoView({ behavior: 'smooth' });
+        } catch (e) { displayStatusMessage('imageEditorStatus', 'error', e.message); }
+        finally { elements.btn.disabled = false; elements.btn.classList.remove('loading'); }
+    };
 
-            elements.result.src = data.editedPhotoDataUri;
-            elements.resultContainer.style.display = 'block';
-            displayStatusMessage('imageEditorStatus', 'success', 'Image edited successfully!');
-            elements.resultContainer.scrollIntoView({ behavior: 'smooth' });
+    elements.editAgain.onclick = () => {
+        selectedImg = elements.res.src;
+        elements.preview.src = selectedImg;
+        elements.resContainer.style.display = 'none';
+        elements.prompt.value = '';
+    };
 
-        } catch (error) {
-            console.error("Image editing error:", error);
-            displayStatusMessage('imageEditorStatus', 'error', `Error: ${error.message}`);
-            playSound('error_buzz');
-        } finally {
-            elements.editBtn.classList.remove('loading');
-            elements.editBtn.disabled = false;
-        }
-    });
+    elements.download.onclick = () => {
+        if (!elements.res.src) return;
+        const a = document.createElement('a');
+        a.href = elements.res.src;
+        a.download = `neural-edit-${Date.now()}.png`;
+        a.click();
+    };
 
-    elements.downloadBtn?.addEventListener('click', () => {
-        if (elements.result.src) {
-            playSound('tab_click');
-            const link = document.createElement('a');
-            link.href = elements.result.src;
-            link.download = `edited-image-${Date.now()}.png`;
-            link.click();
-        }
-    });
-
-    elements.editAgainBtn?.addEventListener('click', () => {
-        playSound('tab_click');
-        if (elements.result.src) {
-            currentImageBase64 = elements.result.src; // Set the edited image as the new base
-            elements.preview.src = currentImageBase64; // Update the preview image
-            elements.previewContainer.style.display = 'block'; // Make sure the preview container is visible
-            elements.resultContainer.style.display = 'none'; // Hide the result container
-            elements.prompt.value = ''; // Clear the prompt for new instructions
-            elements.prompt.focus(); // Focus the prompt
-            displayStatusMessage('imageEditorStatus', 'success', 'Previous edit loaded for further changes.');
-        } else {
-            displayStatusMessage('imageEditorStatus', 'error', 'No edited image to load for further edits.');
-            playSound('error_buzz');
-        }
-    });
-
-    if (elements.enhanceBtn) {
-        elements.enhanceBtn.addEventListener('click', createEnhancer('editorPromptInput', 'imageEditorStatus'));
+    if (elements.enhance) {
+        elements.enhance.onclick = async () => {
+            const p = elements.prompt.value.trim();
+            if (!p) return;
+            displayStatusMessage('imageEditorStatus', 'loading', 'Enhancing instructions...');
+            try {
+                const res = await clients.enhancer.chat.completions.create({
+                    model: "provider-6/gpt-4o-mini",
+                    messages: [{ role: "user", content: `Refine these image editing instructions for an AI: "${p}". Return ONLY the refined version.` }]
+                });
+                elements.prompt.value = res.choices[0].message.content;
+                displayStatusMessage('imageEditorStatus', 'success', 'Instructions refined!');
+            } catch (e) { displayStatusMessage('imageEditorStatus', 'error', 'Failed.'); }
+        };
     }
-    
-    if (elements.clearBtn) {
-        elements.clearBtn.addEventListener('click', () => {
-            playSound('tab_click');
+
+    if (elements.clear) {
+        elements.clear.onclick = () => {
             elements.prompt.value = '';
-            elements.prompt.focus();
-        });
+            displayStatusMessage('imageEditorStatus', 'success', 'Instructions cleared.');
+        };
     }
 }
 
-// --- SHARED FUNCTIONALITY ---
-function createEnhancer(promptElementId, statusElementId) {
-    return async function() {
-        playSound('tab_click');
-        const promptElement = document.getElementById(promptElementId);
-        const originalPrompt = promptElement.value.trim();
-        if (!originalPrompt) {
-            displayStatusMessage(statusElementId, 'error', 'Please enter a prompt to enhance.');
-            playSound('error_buzz');
-            return;
-        }
-        displayStatusMessage(statusElementId, 'loading', 'Enhancing prompt...');
-        try {
-            const response = await clients.enhancer.chat.completions.create({
-                model: "provider-6/gpt-4o-mini",
-                messages: [{ role: "user", content: `Enhance this prompt for AI generation: "${originalPrompt}". Make it more detailed and creative. Return only the enhanced prompt.` }],
-            });
-            promptElement.value = response.choices[0].message.content;
-            displayStatusMessage(statusElementId, 'success', 'Prompt enhanced!');
-        } catch (error) {
-            displayStatusMessage(statusElementId, 'error', `Enhancement failed: ${error.message}`);
-            playSound('error_buzz');
-        }
-    };
+// --- API DOCS ---
+function initApiDocs() {
+    document.querySelectorAll('.copy-code-btn').forEach(btn => {
+        btn.onclick = () => {
+            const targetId = btn.dataset.target;
+            const code = document.getElementById(targetId).innerText;
+            navigator.clipboard.writeText(code);
+            const originalText = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.classList.add('success');
+            setTimeout(() => { btn.textContent = originalText; btn.classList.remove('success'); }, 2000);
+        };
+    });
 }
 
-function initScrollAnimations() {
-    const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
-    };
+// --- GLOBAL UI & ANIMATIONS ---
+function initUI() {
+    const menuBtn = document.getElementById('mobileMenuBtn');
+    const nav = document.querySelector('.main-nav');
+    if (menuBtn) menuBtn.onclick = () => { nav.classList.toggle('active'); menuBtn.classList.toggle('active'); };
 
     const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
+        entries.forEach((entry) => {
             if (entry.isIntersecting) {
                 entry.target.classList.add('animate-in-active');
                 observer.unobserve(entry.target);
             }
         });
-    }, observerOptions);
+    }, { threshold: 0.1 });
+    document.querySelectorAll('[data-animate]').forEach(el => { el.classList.add('animate-in-init'); observer.observe(el); });
 
-    document.querySelectorAll('[data-animate]').forEach(el => {
-        el.classList.add('animate-in-init');
-        observer.observe(el);
+    const btt = document.getElementById('backToTop');
+    if (btt) {
+        window.addEventListener('scroll', () => { if (window.scrollY > 500) btt.classList.add('visible'); else btt.classList.remove('visible'); });
+        btt.onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    document.querySelectorAll('.feature-card, .tool-wrapper, .model-card').forEach(card => {
+        card.addEventListener('mousemove', e => {
+            const r = card.getBoundingClientRect();
+            card.style.setProperty('--x', `${e.clientX - r.left}px`);
+            card.style.setProperty('--y', `${e.clientY - r.top}px`);
+        });
+    });
+
+    document.querySelectorAll('.action-btn, .hero-cta, .nav-link').forEach(btn => {
+        btn.addEventListener('mousemove', e => {
+            const r = btn.getBoundingClientRect();
+            const x = e.clientX - r.left - r.width / 2;
+            const y = e.clientY - r.top - r.height / 2;
+            btn.style.transform = `translate(${x * 0.15}px, ${y * 0.15}px)`;
+        });
+        btn.addEventListener('mouseleave', () => btn.style.transform = '');
     });
 }
 
-function initBackToTop() {
-    const backToTopBtn = document.getElementById('backToTop');
-    if (!backToTopBtn) return;
-
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > 300) {
-            backToTopBtn.classList.add('visible');
-        } else {
-            backToTopBtn.classList.remove('visible');
-        }
-    });
-
-    backToTopBtn.addEventListener('click', () => {
-        window.scrollTo({
-            top: 0,
-            behavior: 'smooth'
-        });
-    });
-}
-
-function handleMobileMenu() {
-    const menuBtn = document.getElementById('mobileMenuBtn');
-    const nav = document.querySelector('.main-nav');
-    if (menuBtn && nav) {
-        menuBtn.addEventListener('click', () => {
-            nav.classList.toggle('active');
-            menuBtn.classList.toggle('active'); // Toggle class for hamburger animation
-        });
-        // Close menu if a nav link is clicked (for single page behavior or navigating)
-        nav.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', () => {
-                nav.classList.remove('active');
-                menuBtn.classList.remove('active');
-            });
-        });
-    }
-}
-
-// Enhanced CSS for better upload experience
-const additionalStyles = `
-<style>
-.upload-zone.dragover {
-    background: rgba(0, 224, 255, 0.1);
-    border-color: var(--neon-cyan);
-    transform: scale(1.02);
-}
-
-.upload-zone {
-    transition: all 0.3s ease;
-}
-
-.upload-zone:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.5);
-}
-
-#imagePreview {
-    max-width: 100%;
-    max-height: 400px;
-    border-radius: var(--border-radius-sm);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-}
-
-.preset-filters {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.preset-filters button {
-    font-size: 0.9rem;
-    padding: 12px 16px;
-}
-
-@media (max-width: 768px) {
-    .preset-filters {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-</style>
-`;
-
-// Add the additional styles
-const styleSheet = document.createElement('style');
-styleSheet.textContent = additionalStyles;
-document.head.appendChild(styleSheet);
-
-// --- DOMContentLoaded ---
-document.addEventListener('DOMContentLoaded', async () => {
-    // Load sounds
-    try {
-        await loadSound('error_buzz', 'error_buzz.mp3');
-        await loadSound('tab_click', 'tab_click.mp3');
-    } catch (error) {
-        console.error('Failed to load sounds:', error);
-    }
+// --- BOOTSTRAP ---
+document.addEventListener('DOMContentLoaded', () => {
+    loadSound('tab_click', 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
+    initUI();
+    initImageGenerator();
+    initWebsiteBuilder();
+    initChatbot();
+    initImageEditor();
+    initApiDocs();
     
-    // Shared components
-    handleMobileMenu();
-    initScrollAnimations();
-    initBackToTop();
-
-    // Page-specific initializations
-    if (document.body.classList.contains('image-generator-page')) {
-        initImageGenerator();
-    }
-    if (document.body.classList.contains('website-builder-page')) {
-        initWebsiteBuilder();
-    }
-    if (document.body.classList.contains('api-docs-page')) {
-        initApiDocs();
-    }
-    if (document.body.classList.contains('image-edit9r-page')) {
-        initImageEditor();
-    }
-    if (document.body.classList.contains('chatbot-page')) {
-        initChatbot();
-    }
+    // Generic Modal Close logic
+    document.querySelectorAll('.close-modal-btn').forEach(b => b.onclick = () => {
+        const modal = b.closest('.modal-overlay');
+        if (modal) modal.style.display = 'none';
+    });
+    window.addEventListener('click', (e) => { if (e.target.classList.contains('modal-overlay')) e.target.style.display = 'none'; });
 });
-
-function initChatbot() {
-    const elements = {
-        input: document.getElementById('botInput'),
-        sendBtn: document.getElementById('sendBotButton'),
-        messages: document.getElementById('chatMessages'),
-        status: document.getElementById('botStatus'),
-        imageUpload: document.getElementById('chatImageUpload'),
-        imagePreviewContainer: document.getElementById('chatImagePreviewContainer'),
-        imagePreview: document.getElementById('chatImagePreview'),
-        removeImageBtn: document.getElementById('removeChatImageBtn'),
-    };
-
-    let selectedImageBase64 = null;
-
-    // Auto-resize textarea
-    elements.input.addEventListener('input', () => {
-        elements.input.style.height = 'auto';
-        elements.input.style.height = (elements.input.scrollHeight) + 'px';
-    });
-
-    // Handle Image Upload
-    elements.imageUpload.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                selectedImageBase64 = event.target.result;
-                elements.imagePreview.src = selectedImageBase64;
-                elements.imagePreviewContainer.style.display = 'flex';
-                playSound('tab_click');
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-
-    elements.removeImageBtn.addEventListener('click', () => {
-        selectedImageBase64 = null;
-        elements.imagePreview.src = '';
-        elements.imagePreviewContainer.style.display = 'none';
-        elements.imageUpload.value = '';
-        playSound('tab_click');
-    });
-
-    function appendMessage(role, text, image = null) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${role}-message`;
-
-        const avatar = role === 'bot' ? '🤖' : '👤';
-
-        let imageHtml = image ? `<img src="${image}" class="message-image" alt="Uploaded image">` : '';
-
-        messageDiv.innerHTML = `
-            <div class="message-content">
-                <div class="message-avatar">${avatar}</div>
-                <div class="message-text-wrapper">
-                    <div class="message-text">${text.replace(/\n/g, '<br>')}</div>
-                    ${imageHtml}
-                    ${role === 'bot' ? '<button class="copy-msg-btn" title="Copy message">📋</button>' : ''}
-                </div>
-            </div>
-        `;
-
-        elements.messages.appendChild(messageDiv);
-        elements.messages.scrollTop = elements.messages.scrollHeight;
-
-        if (role === 'bot') {
-            const copyBtn = messageDiv.querySelector('.copy-msg-btn');
-            copyBtn.addEventListener('click', () => {
-                navigator.clipboard.writeText(text).then(() => {
-                    copyBtn.textContent = '✅';
-                    setTimeout(() => { copyBtn.textContent = '📋'; }, 2000);
-                });
-            });
-        }
-    }
-
-    function showTypingIndicator() {
-        const indicator = document.createElement('div');
-        indicator.className = 'typing-indicator';
-        indicator.id = 'typingIndicator';
-        indicator.innerHTML = `
-            <div class="typing-dots">
-                <span></span><span></span><span></span>
-            </div>
-        `;
-        elements.messages.appendChild(indicator);
-        elements.messages.scrollTop = elements.messages.scrollHeight;
-    }
-
-    function removeTypingIndicator() {
-        const indicator = document.getElementById('typingIndicator');
-        if (indicator) indicator.remove();
-    }
-
-    async function handleSendMessage() {
-        const text = elements.input.value.trim();
-        if (!text && !selectedImageBase64) return;
-
-        playSound('tab_click');
-        appendMessage('user', text, selectedImageBase64);
-
-        // Reset input and preview
-        const currentText = text;
-        const currentImage = selectedImageBase64;
-        elements.input.value = '';
-        elements.input.style.height = 'auto';
-        selectedImageBase64 = null;
-        elements.imagePreviewContainer.style.display = 'none';
-        elements.imageUpload.value = '';
-
-        elements.sendBtn.disabled = true;
-        elements.sendBtn.classList.add('loading');
-        showTypingIndicator();
-
-        try {
-            let messages = [{ role: "user", content: [] }];
-
-            if (currentText) {
-                messages[0].content.push({ type: "text", text: currentText });
-            }
-
-            if (currentImage) {
-                messages[0].content.push({
-                    type: "image_url",
-                    image_url: { url: currentImage }
-                });
-            }
-
-            const response = await clients.enhancer.chat.completions.create({
-                model: "provider-6/gpt-4o-mini",
-                messages: messages,
-            });
-
-            removeTypingIndicator();
-            const botResponse = response.choices[0].message.content;
-            appendMessage('bot', botResponse);
-
-        } catch (error) {
-            removeTypingIndicator();
-            console.error("Chatbot error:", error);
-            displayStatusMessage('botStatus', 'error', `Error: ${error.message}`);
-            playSound('error_buzz');
-        } finally {
-            elements.sendBtn.disabled = false;
-            elements.sendBtn.classList.remove('loading');
-        }
-    }
-
-    elements.sendBtn.addEventListener('click', handleSendMessage);
-    elements.input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSendMessage();
-        }
-    });
-}
